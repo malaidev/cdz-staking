@@ -4,13 +4,15 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 //TODO reward system
 //TODO reward token
 //TODO rarity calculator
 
 
-contract Masterdemon is Ownable {
+contract Masterdemon is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using Address for address;
 
@@ -23,6 +25,8 @@ contract Masterdemon is Ownable {
 
     struct UserInfo {
         uint256 amountStaked; // how many nfts did user staked
+        uint256[] tokenIds;   // ids of nfts user staked
+        mapping (uint256 => uint256) tokenIndex;
     }
 
     /// @notice id => each nft
@@ -34,6 +38,9 @@ contract Masterdemon is Ownable {
     /// @notice cryptodemonz v1 official address
     address public demonz = 0xAE16529eD90FAfc927D774Ea7bE1b95D826664E3;
 
+    /// @notice LLTH address
+    IERC20 public rewardsToken;
+
     /// @notice fee for staking
     uint256 stakingFee = 0.06 ether;
 
@@ -44,7 +51,14 @@ contract Masterdemon is Ownable {
     //TODO amount
     event UserUnstaked(address unstaker);
 
+   
      // ------------------------ PUBLIC ------------------------ //
+
+    constructor( 
+        IERC20 _rewardsToken
+    ) public {
+        rewardsToken = _rewardsToken;
+    }
 
     /// @notice stake multiple tokens at same time
     /// @param _id array of tokens user wants to stake at same time
@@ -52,15 +66,18 @@ contract Masterdemon is Ownable {
         require(msg.value >= stakingFee, "ERR: FEE NOT COVERED");
 
         uint256 amount = 0;
-        for (uint256 i; i<=_id.length; ++i) {
+        UserInfo storage user = userInfo[msg.sender]; 
+        for (uint256 i; i <= _id.length; ++i) {
             require(IERC721(demonz).ownerOf(_id[i]) == address(msg.sender), "ERR: YOU DONT OWN THESE TOKENS");
             IERC721(demonz).safeTransferFrom(msg.sender, address(this), _id[i]);
 
             amount += 1;
 
             nftInfo[_id[i]] = NftInfo(0, 0, 0, 0); //TODO test
-            userInfo[msg.sender] = UserInfo(amount);
         }
+        user.amountStaked = user.amountStaked.add(amount);
+        user.tokenIds = _id;
+        user.tokenIndex[user.tokenIds.length - 1];
 
         emit UserStaked(amount, msg.sender);
         //TODO check for more cases 
@@ -71,6 +88,7 @@ contract Masterdemon is Ownable {
     /// @param _id array fo tokens user wants to unstake at same time
     function UnstakeNFT(uint256[] memory _id) public payable {
         require(msg.value >= withdrawFee, "ERR: FEE NOT COVERED");
+        UserInfo storage user = userInfo[msg.sender]; 
 
         for (uint256 i; i<=_id.length; ++i) {
          
@@ -78,6 +96,21 @@ contract Masterdemon is Ownable {
 
             IERC721(demonz).safeTransferFrom(address(this), msg.sender, _id[i]);
             delete nftInfo[_id[i]]; //TODO test
+
+             uint256 lastIndex = user.tokenIds.length - 1;
+             uint256 lastIndexKey = user.tokenIds[lastIndex];
+             uint256 tokenIdIndex = user.tokenIndex[_tokenId];
+        
+            user.tokenIds[tokenIdIndex] = lastIndexKey;
+            user.tokenIndex[lastIndexKey] = tokenIdIndex;
+            if (user.tokenIds.length > 0) {
+                user.tokenIds.pop();
+                delete user.tokenIndex[_tokenId];
+                user.amountStaked -= 1;
+            }
+        }
+        if (user.amountStaked == 0) {
+            delete stakers[_user];
         }
 
         emit UserUnstaked(msg.sender);
@@ -112,5 +145,12 @@ contract Masterdemon is Ownable {
             bytes4(
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
+    }
+
+    /// @notice Get the tokens staked by a user
+    /// @param _user address of user
+    function getStakedTokens(address _user) external view returns (uint256[] memory tokenIds) {
+
+        return userInfo[_user].tokenIds;
     }
 }
