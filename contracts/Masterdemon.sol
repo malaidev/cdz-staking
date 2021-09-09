@@ -72,7 +72,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             IERC721(demonz).safeTransferFrom(msg.sender, address(this), _id[i]);
 
             amount += 1;
-
             nftInfo[_id[i]] = NftInfo(0, 0, 0, 0); //TODO test
         }
         user.amountStaked = user.amountStaked.add(amount);
@@ -99,18 +98,18 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
              uint256 lastIndex = user.tokenIds.length - 1;
              uint256 lastIndexKey = user.tokenIds[lastIndex];
-             uint256 tokenIdIndex = user.tokenIndex[_tokenId];
+             uint256 tokenIdIndex = user.tokenIndex[_id[i]];
         
             user.tokenIds[tokenIdIndex] = lastIndexKey;
             user.tokenIndex[lastIndexKey] = tokenIdIndex;
             if (user.tokenIds.length > 0) {
                 user.tokenIds.pop();
-                delete user.tokenIndex[_tokenId];
+                delete user.tokenIndex[_id[i]];
                 user.amountStaked -= 1;
             }
         }
         if (user.amountStaked == 0) {
-            delete stakers[_user];
+            delete userInfo[msg.sender];
         }
 
         emit UserUnstaked(msg.sender);
