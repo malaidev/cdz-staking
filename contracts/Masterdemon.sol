@@ -28,6 +28,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     struct UserInfo {
         uint256 amountStaked; // how many nfts did user staked
+        uint256 currentRewad; // how much reward should user get
         uint256[] tokenIds;   // ids of nfts user staked
         mapping (uint256 => uint256) tokenIndex;
     }
@@ -51,8 +52,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     uint256 withdrawFee = 0.08 ether;
 
     event UserStaked(address staker);
-    //TODO amount
     event UserUnstaked(address unstaker);
+    event UserHarvested(address harvester);
 
    
      // ------------------------ PUBLIC/EXTERNAL ------------------------ //
@@ -81,6 +82,10 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         for (uint256 i=0; i<_ids.length; ++i) {
             _unstake(msg.sender, _ids[i]);
         }
+    }
+
+    function harvest() external {
+        _harvest(msg.sender);
     }
 
     // ------------------------ INTERNAL ------------------------ //
@@ -126,6 +131,38 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             delete userInfo[msg.sender];
         }
 
+        emit UserUnstaked(_user);
+
+    }
+
+    function _harvest(address _user) internal {
+        require(msg.value >= stakingFee, "ERR: FEE NOT COVERED");
+        uint256 rarity = _getRarity(); // will take NFT ID
+        uint256 APY = _getAPY(rarity); // will also take USER address to check their staking period as well.
+        rewardsToken.transfer(_user, APY);
+        UserInfo storage user = userInfo[_user];
+        user.currentRewad = user.currentRewad.sub(APY);
+
+        emit UserHarvested(_user);
+    }
+
+    /*
+    /// @notice Get the tokens staked by a user
+    /// @param _user address of user
+    function getStakedTokens(address _user) external view returns (uint256[] memory tokenIds) {
+
+        return userInfo[_user].tokenIds;
+    }
+    */
+
+    /// @notice dummy function, will be replaced by oracle later
+    function _getRarity() internal pure returns (uint256) {
+        return 40;
+    } 
+
+    /// @notice dummy function, will be replaced by actual APY calculator later
+    function _getAPY(uint256 _rarity) internal pure returns (uint256) {
+        return _rarity * 2;
     }
 
     // ------------------------ DEV ------------------------ //
@@ -144,14 +181,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         require(demonz != _newAddress, "DEV_ERR: ADDRESS ALREADY SET");
         demonz = _newAddress;
     }
-
-    /// @notice Get the tokens staked by a user
-    /// @param _user address of user
-    function getStakedTokens(address _user) external view returns (uint256[] memory tokenIds) {
-
-        return userInfo[_user].tokenIds;
-    }
-
+    
     function onERC721Received(
         address,
         address,
