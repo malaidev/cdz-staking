@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 //TODO reward system
@@ -36,8 +37,20 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     // @notice id => each nft
    //mapping(uint256 => NftInfo) public nftInfo;
 
+    // Info of each pool.
+    struct PoolInfo {
+        IERC721 stakingToken;             // Address of staking NFT token contract.
+        uint256 allocPoint;         // How many allocation points assigned to this pool. ERC20s to distribute per block.
+        uint256 lastRewardBlock;    // Last block number that ERC20s distribution occurs.
+        uint256 accERC20PerShare;   // Accumulated ERC20s per share, times 1e36.
+    }
+
+
     /// @notice address => each user
     mapping(address => UserInfo) public userInfo;
+
+    /// @notice Info of each pool.
+    PoolInfo[] public poolInfo;
 
     /// @notice cryptodemonz v1 official address
     address public demonz = 0xAE16529eD90FAfc927D774Ea7bE1b95D826664E3;
@@ -51,17 +64,31 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /// @notice fee for withdrawing 
     uint256 withdrawFee = 0.08 ether;
 
+    /// @notice The block number when farming starts.
+    uint256 public startBlock;
+
+    /// @notice The block number when farming ends.
+    uint256 public endBlock;
+
+    /// @notice Total allocation points. Must be the sum of all allocation points in all pools.
+    uint256 public totalAllocPoint = 0;
+
     event UserStaked(address staker);
     event UserUnstaked(address unstaker);
     event UserHarvested(address harvester);
 
+ 
    
      // ------------------------ PUBLIC/EXTERNAL ------------------------ //
 
     constructor( 
-        IERC20 _rewardsToken
+        IERC20 _rewardsToken,
+        uint256 _startBlock
     ) public {
         rewardsToken = _rewardsToken;
+        startBlock = _startBlock;
+        endBlock = _startBlock;
+
     }
 
     function stake(uint256 _id) external {
@@ -165,6 +192,11 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         return _rarity * 2;
     }
 
+    /// @notice Number of nft pools
+    function poolLength() external view returns (uint256) {
+        return poolInfo.length;
+    }
+
     // ------------------------ DEV ------------------------ //
 
     function changeStakingFee(uint256 _staking) public onlyOwner() {
@@ -180,6 +212,21 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     function changeDemonzAddress(address _newAddress) public onlyOwner() {
         require(demonz != _newAddress, "DEV_ERR: ADDRESS ALREADY SET");
         demonz = _newAddress;
+    }
+
+    /// @notice Add a new nft to the pool. Can only be called by the owner.
+    function add(uint256 _allocPoint, IERC721 _nftToken, bool _withUpdate) public onlyOwner {
+        if (_withUpdate) {
+    
+        }
+        uint256 lastRewardBlock = block.number > startBlock ? block.number : startBlock;
+        totalAllocPoint = totalAllocPoint.add(_allocPoint);
+        poolInfo.push(PoolInfo({
+            stakingToken: _nftToken,
+            allocPoint: _allocPoint,
+            lastRewardBlock: lastRewardBlock,
+            accERC20PerShare: 0
+        }));
     }
     
     function onERC721Received(
