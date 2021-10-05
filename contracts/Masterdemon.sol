@@ -39,7 +39,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     // Info of each pool.
     struct PoolInfo {
-        IERC721 stakingToken;             // Address of staking NFT token contract.
+        IERC721 stakingToken;        // Address of staking NFT token contract.
         uint256 allocPoint;         // How many allocation points assigned to this pool. ERC20s to distribute per block.
         uint256 lastRewardBlock;    // Last block number that ERC20s distribution occurs.
         uint256 accERC20PerShare;   // Accumulated ERC20s per share, times 1e36.
@@ -165,7 +165,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     function _harvest(address _user) internal {
         require(msg.value >= stakingFee, "ERR: FEE NOT COVERED");
         uint256 rarity = _getRarity(); // will take NFT ID
-        uint256 APY = _getAPY(rarity); // will also take USER address to check their staking period as well.
+        uint256 APY = 3; // will also take USER address to check their staking period as well.
         rewardsToken.transfer(_user, APY);
         UserInfo storage user = userInfo[_user];
         user.currentRewad = user.currentRewad.sub(APY);
@@ -187,9 +187,37 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         return 40;
     } 
 
-    /// @notice dummy function, will be replaced by actual APY calculator later
-    function _getAPY(uint256 _rarity) internal pure returns (uint256) {
-        return _rarity * 2;
+    /// @notice will calculate rarity based on our formula
+    /// @param _rarity number given my trait normalization formula
+    /// @param _normalizer number that will range _rarity into normalized numbers range
+    /// @param _daysStaked maturity period 
+    /// @param _multiplier pool can have multiplier
+    /// @param _amountOfStakers used to minimize rewards proportionally to pool popularity 
+    function _calculateRewards(
+        uint256 _rarity, 
+        uint256 _normalizer,
+        uint256 _daysStaked, 
+        uint256 _multiplier, 
+        uint256 _amountOfStakers
+    )
+        internal returns (uint256)
+    {
+
+        require(
+            _rarity != 0 && 
+            _daysStaked !=0 && 
+            _multiplier !=0 && 
+            _amountOfStakers !=0 &&
+            _normalizer !=0, 
+            "CANT BE ZERO"
+        );
+
+        uint256 baseMultiplier = _multiplier.mul(_daysStaked);
+        uint256 baseRarity = _normalizer.mul(_rarity);
+        uint256 basemultiplierxRarity = baseMultiplier.mul(baseRarity);
+        uint256 finalReward = basemultiplierxRarity.div(_amountOfStakers);
+
+        return finalReward;
     }
 
     /// @notice Number of nft pools
