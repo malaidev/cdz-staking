@@ -8,6 +8,7 @@ contract LLTH is ERC20, Ownable {
     using SafeMath for uint256;
     uint256 public LlthTxnFee = 5;
     address public devWallet = 0xb0bbEA2d69a20a332Ff90486761B908482030636;
+    address public uniswapV3Router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     mapping(address => bool) internal _onlyApproved;
     mapping(address => bool) internal _isExcluded;
@@ -82,9 +83,12 @@ contract LLTH is ERC20, Ownable {
             super._transfer(from, to, amount);
         }
 
-        uint256 fees = amount.mul(LlthTxnFee).div(100);
-        amount = amount.sub(fees);
-        super._transfer(from, address(this), fees);
+        if (to == uniswapV3Router) { 
+            uint256 fees = amount.mul(LlthTxnFee).div(100);
+            amount = amount.sub(fees);
+            super._transfer(from, address(this), fees);
+        }
+        
         super._transfer(from, to, amount);
     }
 }
