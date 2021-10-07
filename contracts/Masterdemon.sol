@@ -16,10 +16,12 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 amountStaked; // how many nfts did user staked
         uint256 currentRewad; // how much reward should user get
         uint256[] tokenIds; // ids of nfts user staked
+        mapping(uint256 => bool) tokenIdsMapping; // for checking if user really staked tokens
         mapping(uint256 => uint256) tokenIndex; // for delicate operations
     }
 
     struct NftCollection {
+        // some dummy values
         address collectionAddress;
         uint256 stakingFee;
         uint256 harvestingFee;
@@ -31,6 +33,7 @@ contract MasterDemon is Ownable, ReentrancyGuard {
     /// @notice address => each user
     mapping(address => UserInfo) public userInfo;
 
+    /// @notice array of each nft collection
     NftCollection[] public nftCollection;
 
     /// @notice LLTH token
@@ -76,6 +79,7 @@ contract MasterDemon is Ownable, ReentrancyGuard {
 
     /// @notice stake single nft (called in external function)
     /// @param _user = msg.sender
+    /// @param _cid = collection id
     /// @param _id = nft id
     function _stake(address _user, uint256 _cid, uint256 _id) internal {
         NftCollection memory collection = nftCollection[_cid];
@@ -87,17 +91,19 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         IERC721(collection.collectionAddress).safeTransferFrom(_user, address(this), _id);
         user.amountStaked = user.amountStaked.add(1);
         user.tokenIds.push(_id);
+        user.tokenIdsMapping[_id] == true;
 
         emit UserStaked(_user);
     }
 
     /// @notice unstake single nft (called in external function)
     /// @param _user = msg.sender
+    /// @param _cid = collection id
     /// @param _id = nft id
     function _unstake(address _user, uint256 _cid, uint256 _id) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
-        // massive security issue here, user can withdraw any token, should check if they really staked them!!!
+        require(user.tokenIdsMapping[_id] == true, "YOU DONT OWN THE TOKEN AT GIVEN INDEX");
         IERC721(collection.collectionAddress).safeTransferFrom(address(this), _user, _id);
 
         uint256 lastIndex = user.tokenIds.length - 1;
@@ -108,6 +114,7 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         user.tokenIndex[lastIndexKey] = tokenIdIndex;
         if (user.tokenIds.length > 0) {
             user.tokenIds.pop();
+            user.tokenIdsMapping[_id] == false;
             delete user.tokenIndex[_id];
             user.amountStaked -= 1;
         }
