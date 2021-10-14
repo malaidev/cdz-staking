@@ -1,4 +1,5 @@
 pragma solidity 0.8.7;
+pragma abicoder v2; // using this so we can return struct in get function
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -29,6 +30,7 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 withdrawingFee;
         uint256 normalizer;
         uint256 multiplier;
+        uint256 maturityPeriod;
     }
 
     /// @notice address => each user
@@ -147,10 +149,10 @@ contract MasterDemon is Ownable, ReentrancyGuard {
 
     function _harvest(address _user) internal {
         uint256 rarity = _getRarity(); // will take NFT ID
-        uint256 APY = 1; // notice its dummy variable
-        llth.transfer(_user, APY);
-        UserInfo storage user = userInfo[_user];
-        user.currentRewad = user.currentRewad.sub(APY);
+        //uint256 APY = 1; // notice its dummy variable
+        //llth.transfer(_user, APY);
+        //UserInfo storage user = userInfo[_user];
+        //user.currentRewad = user.currentRewad.sub(APY);
 
         emit UserHarvested(_user);
     }
@@ -175,10 +177,10 @@ contract MasterDemon is Ownable, ReentrancyGuard {
     ) internal returns (uint256) {
         require(
             _rarity != 0 &&
-            _daysStaked != 0 &&
-            _multiplier != 0 &&
-            _amountOfStakers != 0 &&
-            _normalizer != 0,
+                _daysStaked != 0 &&
+                _multiplier != 0 &&
+                _amountOfStakers != 0 &&
+                _normalizer != 0,
             "CANT BE ZERO"
         );
 
@@ -190,6 +192,19 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         return finalReward;
     }
 
+    // ------------------------ GET for frontend ------------------------ //
+
+    function getCollectionInfo(uint256 _cid) public view returns (NftCollection memory) {
+        NftCollection memory collection = nftCollection[_cid];
+        return collection;
+    }
+
+    // returning UserInfo is other story, since it contains nested mapping
+    // compiler will throw an error that due to this, struct is sitting in storage
+    // but returning a struct can only accept either memory or calldata
+    // this needs to be fixed either with abicoder v2 help or some old way 
+    // that i'm not aware of. But since this is not crucial part, we can skip.
+
     // ------------------------ ADMIN ------------------------ //
 
     function setCollection(
@@ -199,7 +214,8 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _withdrawingFee,
         uint256 _normalizer,
-        uint256 _multiplier
+        uint256 _multiplier,
+        uint256 _maturityPeriod
     ) public onlyOwner {
         nftCollection.push(
             NftCollection({
@@ -209,7 +225,8 @@ contract MasterDemon is Ownable, ReentrancyGuard {
                 harvestingFee: _harvestingFee,
                 withdrawingFee: _withdrawingFee,
                 normalizer: _normalizer,
-                multiplier: _multiplier
+                multiplier: _multiplier,
+                maturityPeriod: _maturityPeriod
             })
         );
     }
@@ -222,7 +239,8 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _withdrawingFee,
         uint256 _normalizer,
-        uint256 _multiplier
+        uint256 _multiplier,
+        uint256 _maturityPeriod
     ) public onlyOwner {
         NftCollection memory collection = nftCollection[_cid];
         collection.isStakable = _isStakable;
@@ -232,9 +250,10 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         collection.withdrawingFee = _withdrawingFee;
         collection.normalizer = _normalizer;
         collection.multiplier = _multiplier;
+        collection.maturityPeriod = _maturityPeriod;
     }
 
-    function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
+    function setCollectionState(uint256 _cid, bool _isStakable) public onlyOwner {
         NftCollection memory collection = nftCollection[_cid];
         collection.isStakable = _isStakable;
     }
