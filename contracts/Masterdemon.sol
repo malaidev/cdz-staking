@@ -98,7 +98,7 @@ contract MasterDemon is Ownable, ReentrancyGuard {
             address(this),
             _id
         );
-        userInfo[_user].amountStaked = user.amountStaked.add(1);
+        userInfo[_user].amountStaked = userInfo[_user].amountStaked.add(1);
         userInfo[_user].tokenIds.push(_id);
         userInfo[_user].tokenIdsMapping[_id] = true;
 
