@@ -1,3 +1,4 @@
+//SPDX-License-Identifier: MIT
 pragma solidity 0.8.7;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -44,7 +45,7 @@ contract MasterDemon is Ownable, ReentrancyGuard {
     event UserUnstaked(address unstaker);
     event UserHarvested(address harvester);
 
-    constructor(IERC20 _llth) public {
+    constructor(IERC20 _llth) {
         llth = _llth;
     }
 
@@ -85,21 +86,19 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 _cid,
         uint256 _id
     ) internal {
-        NftCollection memory collection = nftCollection[_cid];
-        UserInfo storage user = userInfo[_user];
         require(
-            IERC721(collection.collectionAddress).ownerOf(_id) ==
+            IERC721(nftCollection[_cid].collectionAddress).ownerOf(_id) ==
                 address(_user),
             "ERR: YOU DONT OWN THIS TOKEN"
         );
-        IERC721(collection.collectionAddress).safeTransferFrom(
+        IERC721(nftCollection[_cid].collectionAddress).safeTransferFrom(
             _user,
             address(this),
             _id
         );
-        user.amountStaked = user.amountStaked.add(1);
-        user.tokenIds.push(_id);
-        user.tokenIdsMapping[_id] == true;
+        userInfo[_user].amountStaked = user.amountStaked.add(1);
+        userInfo[_user].tokenIds.push(_id);
+        userInfo[_user].tokenIdsMapping[_id] = true;
 
         emit UserStaked(_user);
     }
@@ -113,32 +112,30 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 _cid,
         uint256 _id
     ) internal {
-        NftCollection memory collection = nftCollection[_cid];
-        UserInfo storage user = userInfo[_user];
         require(
-            user.tokenIdsMapping[_id] == true,
+            userInfo[_user].tokenIdsMapping[_id] == true,
             "YOU DONT OWN THE TOKEN AT GIVEN INDEX"
         );
-        IERC721(collection.collectionAddress).safeTransferFrom(
-            address(this),
+        IERC721(nftCollection[_cid].collectionAddress).safeTransferFrom(
             _user,
+            address(this),
             _id
         );
 
-        uint256 lastIndex = user.tokenIds.length - 1;
-        uint256 lastIndexKey = user.tokenIds[lastIndex];
-        uint256 tokenIdIndex = user.tokenIndex[_id];
+        uint256 lastIndex = userInfo[_user].tokenIds.length - 1;
+        uint256 lastIndexKey = userInfo[_user].tokenIds[lastIndex];
+        uint256 tokenIdIndex = userInfo[_user].tokenIndex[_id];
 
-        user.tokenIds[tokenIdIndex] = lastIndexKey;
-        user.tokenIndex[lastIndexKey] = tokenIdIndex;
-        if (user.tokenIds.length > 0) {
-            user.tokenIds.pop();
-            user.tokenIdsMapping[_id] == false;
-            delete user.tokenIndex[_id];
-            user.amountStaked -= 1;
+        userInfo[_user].tokenIds[tokenIdIndex] = lastIndexKey;
+        userInfo[_user].tokenIndex[lastIndexKey] = tokenIdIndex;
+        if (userInfo[_user].tokenIds.length > 0) {
+            userInfo[_user].tokenIds.pop();
+            userInfo[_user].tokenIdsMapping[_id] = false;
+            delete userInfo[_user].tokenIndex[_id];
+            userInfo[_user].amountStaked -= 1;
         }
 
-        if (user.amountStaked == 0) {
+        if (userInfo[_user].amountStaked == 0) {
             delete userInfo[msg.sender];
         }
 
@@ -172,13 +169,13 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 _daysStaked,
         uint256 _multiplier,
         uint256 _amountOfStakers
-    ) internal returns (uint256) {
+    ) internal pure returns (uint256) {
         require(
             _rarity != 0 &&
-            _daysStaked != 0 &&
-            _multiplier != 0 &&
-            _amountOfStakers != 0 &&
-            _normalizer != 0,
+                _daysStaked != 0 &&
+                _multiplier != 0 &&
+                _amountOfStakers != 0 &&
+                _normalizer != 0,
             "CANT BE ZERO"
         );
 
@@ -224,19 +221,17 @@ contract MasterDemon is Ownable, ReentrancyGuard {
         uint256 _normalizer,
         uint256 _multiplier
     ) public onlyOwner {
-        NftCollection memory collection = nftCollection[_cid];
-        collection.isStakable = _isStakable;
-        collection.collectionAddress = _collectionAddress;
-        collection.stakingFee = _stakingFee;
-        collection.harvestingFee = _harvestingFee;
-        collection.withdrawingFee = _withdrawingFee;
-        collection.normalizer = _normalizer;
-        collection.multiplier = _multiplier;
+        nftCollection[_cid].isStakable = _isStakable;
+        nftCollection[_cid].collectionAddress = _collectionAddress;
+        nftCollection[_cid].stakingFee = _stakingFee;
+        nftCollection[_cid].harvestingFee = _harvestingFee;
+        nftCollection[_cid].withdrawingFee = _withdrawingFee;
+        nftCollection[_cid].normalizer = _normalizer;
+        nftCollection[_cid].multiplier = _multiplier;
     }
 
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
-        NftCollection memory collection = nftCollection[_cid];
-        collection.isStakable = _isStakable;
+        nftCollection[_cid].isStakable = _isStakable;
     }
 
     function onERC721Received(

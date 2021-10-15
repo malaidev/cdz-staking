@@ -1,3 +1,4 @@
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -18,7 +19,7 @@ contract LLTH is ERC20, Ownable {
         _;
     }
 
-    constructor() public ERC20("Lilith", "LLTH") {
+    constructor() ERC20("Lilith", "LLTH") {
         _isExcluded[owner()] = true;
         _mint(owner(), 1000000 * (10**18));
     }
@@ -83,12 +84,12 @@ contract LLTH is ERC20, Ownable {
             super._transfer(from, to, amount);
         }
 
-        if (to == uniswapV3Router) { 
+        if (to == uniswapV3Router) {
             uint256 fees = amount.mul(LlthTxnFee).div(100);
             amount = amount.sub(fees);
             super._transfer(from, address(this), fees);
         }
-        
+
         super._transfer(from, to, amount);
     }
 }
