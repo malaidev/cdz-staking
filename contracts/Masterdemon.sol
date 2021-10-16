@@ -95,19 +95,21 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _cid,
         uint256 _id
     ) internal {
+        NftCollection memory collection = nftCollection[_cid];
+        UserInfo storage user = userInfo[_user];
         require(
-            IERC721(nftCollection[_cid].collectionAddress).ownerOf(_id) ==
+            IERC721(collection.collectionAddress).ownerOf(_id) ==
                 address(_user),
             "ERR: YOU DONT OWN THIS TOKEN"
         );
-        IERC721(nftCollection[_cid].collectionAddress).safeTransferFrom(
+        IERC721(collection.collectionAddress).safeTransferFrom(
             _user,
             address(this),
             _id
         );
-        userInfo[_user].amountStaked = userInfo[_user].amountStaked.add(1);
-        userInfo[_user].tokenIds.push(_id);
-        userInfo[_user].tokenIdsMapping[_id] = true;
+        user.amountStaked = user.amountStaked.add(1);
+        user.tokenIds.push(_id);
+        user.tokenIdsMapping[_id] = true;
 
         emit UserStaked(_user);
     }
@@ -121,36 +123,43 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _cid,
         uint256 _id
     ) internal {
+        NftCollection memory collection = nftCollection[_cid];
+        UserInfo storage user = userInfo[_user];
         require(
-            userInfo[_user].tokenIdsMapping[_id] == true,
+            user.tokenIdsMapping[_id] == true,
             "YOU DONT OWN THE TOKEN AT GIVEN INDEX"
         );
-        IERC721(nftCollection[_cid].collectionAddress).safeTransferFrom(
+        IERC721(collection.collectionAddress).safeTransferFrom(
             address(this),
             _user,
             _id
         );
 
-        uint256 lastIndex = userInfo[_user].tokenIds.length - 1;
-        uint256 lastIndexKey = userInfo[_user].tokenIds[lastIndex];
-        uint256 tokenIdIndex = userInfo[_user].tokenIndex[_id];
+        uint256 lastIndex = user.tokenIds.length - 1;
+        uint256 lastIndexKey = user.tokenIds[lastIndex];
+        uint256 tokenIdIndex = user.tokenIndex[_id];
 
-        userInfo[_user].tokenIds[tokenIdIndex] = lastIndexKey;
-        userInfo[_user].tokenIndex[lastIndexKey] = tokenIdIndex;
-        if (userInfo[_user].tokenIds.length > 0) {
-            userInfo[_user].tokenIds.pop();
-            userInfo[_user].tokenIdsMapping[_id] = false;
-            delete userInfo[_user].tokenIndex[_id];
-            userInfo[_user].amountStaked -= 1;
+        user.tokenIds[tokenIdIndex] = lastIndexKey;
+        user.tokenIndex[lastIndexKey] = tokenIdIndex;
+        if (user.tokenIds.length > 0) {
+            user.tokenIds.pop();
+            user.tokenIdsMapping[_id] = false;
+            delete user.tokenIndex[_id];
+            user.amountStaked -= 1;
         }
 
-        if (userInfo[_user].amountStaked == 0) {
+        if (user.amountStaked == 0) {
             delete userInfo[msg.sender];
         }
 
         emit UserUnstaked(_user);
     }
 
+    /// @notice during harvest, user gets rewards 
+    /// @param _user: user address
+    /// @param _cid: collection id
+    /// @param _id: nft id
+    /// @dev not finished yet, uses some dummy values
     function _harvest(address _user, uint256 _cid, uint256 _id) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
@@ -159,7 +168,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 reward = _calculateRewards(rarity, collection.normalizer, 1, collection.multiplier, 100); // some dummy values
 
         user.currentReward = user.currentReward.sub(reward);
-        user.daysStaked = 0;
 
         llth.transfer(_user, reward);
         emit UserHarvested(_user);
@@ -183,6 +191,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _multiplier,
         uint256 _amountOfStakers
     ) internal pure returns (uint256) {
+        
         require(
             _rarity != 0 &&
                 _daysStaked != 0 &&
@@ -254,17 +263,19 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _multiplier,
         uint256 _maturityPeriod
     ) public onlyOwner {
-        nftCollection[_cid].isStakable = _isStakable;
-        nftCollection[_cid].collectionAddress = _collectionAddress;
-        nftCollection[_cid].stakingFee = _stakingFee;
-        nftCollection[_cid].harvestingFee = _harvestingFee;
-        nftCollection[_cid].withdrawingFee = _withdrawingFee;
-        nftCollection[_cid].normalizer = _normalizer;
-        nftCollection[_cid].multiplier = _multiplier;
+        NftCollection memory collection = nftCollection[_cid];
+        collection.isStakable = _isStakable;
+        collection.collectionAddress = _collectionAddress;
+        collection.stakingFee = _stakingFee;
+        collection.harvestingFee = _harvestingFee;
+        collection.withdrawingFee = _withdrawingFee;
+        collection.normalizer = _normalizer;
+        collection.multiplier = _multiplier;
     }
 
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
-        nftCollection[_cid].isStakable = _isStakable;
+        NftCollection memory collection = nftCollection[_cid];
+        collection.isStakable = _isStakable;
     }
 
     function onERC721Received(
