@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract MasterDemon is Ownable, ReentrancyGuard {
+contract Masterdemon is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using Address for address;
 
@@ -119,8 +119,8 @@ contract MasterDemon is Ownable, ReentrancyGuard {
             "YOU DONT OWN THE TOKEN AT GIVEN INDEX"
         );
         IERC721(nftCollection[_cid].collectionAddress).safeTransferFrom(
-            _user,
             address(this),
+            _user,
             _id
         );
 
