@@ -16,7 +16,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     struct UserInfo {
         uint256 amountStaked; // how many nfts did user staked
-        uint256 currentRewad; // how much reward should user get
+        uint256 currentReward; // how much reward should user get
+        uint256 daysStaked;
         uint256[] tokenIds; // ids of nfts user staked
         mapping(uint256 => bool) tokenIdsMapping; // for checking if user really staked tokens
         mapping(uint256 => uint256) tokenIndex; // for delicate operations
@@ -73,8 +74,14 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         }
     }
 
-    function harvest() external {
-        _harvest(msg.sender);
+    function harvest(uint256 _cid, uint256 _id) external {
+        _harvest(msg.sender, _cid, _id);
+    }
+
+    function batchHarvest(uint256 _cid, uint256[] memory _ids) external {
+        for (uint256 i = 0; i < _ids.length; ++i) {
+            _harvest(msg.sender, _cid, _ids[i]);
+        }
     }
 
     // ------------------------ INTERNAL ------------------------ //
@@ -144,18 +151,22 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         emit UserUnstaked(_user);
     }
 
-    function _harvest(address _user) internal {
-        uint256 rarity = _getRarity(); // will take NFT ID
-        //uint256 APY = 1; // notice its dummy variable
-        //llth.transfer(_user, APY);
-        //UserInfo storage user = userInfo[_user];
-        //user.currentRewad = user.currentRewad.sub(APY);
+    function _harvest(address _user, uint256 _cid, uint256 _id) internal {
+        NftCollection memory collection = nftCollection[_cid];
+        UserInfo storage user = userInfo[_user];
+        
+        uint256 rarity = _getRarity(collection.collectionAddress, _id); 
+        uint256 reward = _calculateRewards(rarity, collection.normalizer, 1, collection.multiplier, 100); // some dummy values
 
+        user.currentReward = user.currentReward.sub(reward);
+        user.daysStaked = 0;
+
+        llth.transfer(_user, reward);
         emit UserHarvested(_user);
     }
 
     /// @notice dummy function, will be replaced by oracle later
-    function _getRarity() internal pure returns (uint256) {
+    function _getRarity(address _collectionAddress, uint256 _id) internal pure returns (uint256) {
         return 40;
     }
 
