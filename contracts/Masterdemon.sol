@@ -29,8 +29,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         address collectionAddress;
         uint256 stakingFee;
         uint256 harvestingFee;
-        uint256 withdrawingFee;
-        uint256 normalizer;
         uint256 multiplier;
         uint256 maturityPeriod;
     }
@@ -54,7 +52,12 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     // ------------------------ PUBLIC/EXTERNAL ------------------------ //
 
-    function stake(uint256 _cid, uint256 _id) external {
+    function stake(uint256 _cid, uint256 _id) external payable {
+        NftCollection memory collection = nftCollection[_cid];
+        if (collection.stakingFee != 0) {
+            require(msg.value == collection.stakingFee, "FEE NOT COVERED");
+        }
+
         _stake(msg.sender, _cid, _id);
     }
 
@@ -62,8 +65,12 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         _unstake(msg.sender, _cid, _id);
     }
 
-    function stakeBatch(uint256 _cid, uint256[] memory _ids) external {
+    function stakeBatch(uint256 _cid, uint256[] memory _ids) external payable {
+        NftCollection memory collection = nftCollection[_cid];
         for (uint256 i = 0; i < _ids.length; ++i) {
+            if (collection.stakingFee != 0) {
+                require(msg.value == collection.stakingFee, "FEE NOT COVERED");
+            }
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -74,12 +81,26 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         }
     }
 
-    function harvest(uint256 _cid, uint256 _id) external {
+    function harvest(uint256 _cid, uint256 _id) external payable {
+        NftCollection memory collection = nftCollection[_cid];
+        if (collection.harvestingFee != 0) {
+            require(msg.value == collection.harvestingFee, "FEE NOT COVERED");
+        }
         _harvest(msg.sender, _cid, _id);
     }
 
-    function batchHarvest(uint256 _cid, uint256[] memory _ids) external {
+    function batchHarvest(uint256 _cid, uint256[] memory _ids)
+        external
+        payable
+    {
+        NftCollection memory collection = nftCollection[_cid];
         for (uint256 i = 0; i < _ids.length; ++i) {
+            if (collection.harvestingFee != 0) {
+                require(
+                    msg.value == collection.harvestingFee,
+                    "FEE NOT COVERED"
+                );
+            }
             _harvest(msg.sender, _cid, _ids[i]);
         }
     }
@@ -155,17 +176,27 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         emit UserUnstaked(_user);
     }
 
-    /// @notice during harvest, user gets rewards 
+    /// @notice during harvest, user gets rewards
     /// @param _user: user address
     /// @param _cid: collection id
     /// @param _id: nft id
     /// @dev not finished yet, uses some dummy values
-    function _harvest(address _user, uint256 _cid, uint256 _id) internal {
+    function _harvest(
+        address _user,
+        uint256 _cid,
+        uint256 _id
+    ) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
-        
-        uint256 rarity = _getRarity(collection.collectionAddress, _id); 
-        uint256 reward = _calculateRewards(rarity, collection.normalizer, 1, collection.multiplier, 100); // some dummy values
+
+        uint256 rarity = _getRarity(collection.collectionAddress, _id);
+        require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
+        uint256 reward = _calculateRewards(
+            rarity,
+            1,
+            collection.multiplier,
+            100
+        ); // some dummy values
 
         user.currentReward = user.currentReward.sub(reward);
 
@@ -174,36 +205,28 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     /// @notice dummy function, will be replaced by oracle later
-    function _getRarity(address _collectionAddress, uint256 _id) internal pure returns (uint256) {
-        return 40;
+    function _getRarity(address _collectionAddress, uint256 _id)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 rarity = 100;
+        return rarity;
     }
 
     /// @notice will calculate rarity based on our formula
     /// @param _rarity number given my trait normalization formula
-    /// @param _normalizer number that will range _rarity into normalized numbers range
     /// @param _daysStaked maturity period
     /// @param _multiplier pool can have multiplier
     /// @param _amountOfStakers used to minimize rewards proportionally to pool popularity
     function _calculateRewards(
         uint256 _rarity,
-        uint256 _normalizer,
         uint256 _daysStaked,
         uint256 _multiplier,
         uint256 _amountOfStakers
     ) internal pure returns (uint256) {
-        
-        require(
-            _rarity != 0 &&
-                _daysStaked != 0 &&
-                _multiplier != 0 &&
-                _amountOfStakers != 0 &&
-                _normalizer != 0,
-            "CANT BE ZERO"
-        );
-
         uint256 baseMultiplier = _multiplier.mul(_daysStaked);
-        uint256 baseRarity = _normalizer.mul(_rarity);
-        uint256 basemultiplierxRarity = baseMultiplier.mul(baseRarity);
+        uint256 basemultiplierxRarity = baseMultiplier.mul(_rarity);
         uint256 finalReward = basemultiplierxRarity.div(_amountOfStakers);
 
         return finalReward;
@@ -233,8 +256,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         address _collectionAddress,
         uint256 _stakingFee,
         uint256 _harvestingFee,
-        uint256 _withdrawingFee,
-        uint256 _normalizer,
         uint256 _multiplier,
         uint256 _maturityPeriod
     ) public onlyOwner {
@@ -244,8 +265,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 collectionAddress: _collectionAddress,
                 stakingFee: _stakingFee,
                 harvestingFee: _harvestingFee,
-                withdrawingFee: _withdrawingFee,
-                normalizer: _normalizer,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod
             })
@@ -258,8 +277,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         address _collectionAddress,
         uint256 _stakingFee,
         uint256 _harvestingFee,
-        uint256 _withdrawingFee,
-        uint256 _normalizer,
         uint256 _multiplier,
         uint256 _maturityPeriod
     ) public onlyOwner {
@@ -268,8 +285,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collection.collectionAddress = _collectionAddress;
         collection.stakingFee = _stakingFee;
         collection.harvestingFee = _harvestingFee;
-        collection.withdrawingFee = _withdrawingFee;
-        collection.normalizer = _normalizer;
         collection.multiplier = _multiplier;
     }
 
