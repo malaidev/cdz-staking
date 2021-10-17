@@ -188,7 +188,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     ) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
-
+        require(collection.isStakable = true, "STAKING HAS FINISHED");
         uint256 rarity = _getRarity(collection.collectionAddress, _id);
         require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
         uint256 reward = _calculateRewards(
