@@ -17,7 +17,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     struct UserInfo {
         uint256 amountStaked; // how many nfts did user staked
         uint256 currentReward; // how much reward should user get
-        uint256 daysStaked;
+        uint256 daysStaked; // unix epoch / 60 / 60 / 24
         uint256[] tokenIds; // ids of nfts user staked
         mapping(uint256 => bool) tokenIdsMapping; // for checking if user really staked tokens
         mapping(uint256 => uint256) tokenIndex; // for delicate operations
@@ -131,6 +131,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         user.amountStaked = user.amountStaked.add(1);
         user.tokenIds.push(_id);
         user.tokenIdsMapping[_id] = true;
+        user.daysStaked = block.timestamp;
 
         emit UserStaked(_user);
     }
@@ -169,6 +170,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             user.amountStaked -= 1;
         }
 
+        user.daysStaked = 0;
+
         if (user.amountStaked == 0) {
             delete userInfo[msg.sender];
         }
@@ -188,12 +191,14 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     ) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
+        uint256 daysStaked = block.timestamp.sub(user.daysStaked);
+        require(daysStaked <= collection.maturityPeriod, "YOU CANT HARVEST YET");
         require(collection.isStakable = true, "STAKING HAS FINISHED");
         uint256 rarity = _getRarity(collection.collectionAddress, _id);
         require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
         uint256 reward = _calculateRewards(
             rarity,
-            1,
+            daysStaked,
             collection.multiplier,
             100
         ); // some dummy values
