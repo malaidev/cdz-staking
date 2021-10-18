@@ -6,7 +6,7 @@
 - [x] smart way to define maturity time
     - simple require check will do the job
 - [x] handling the floats
-    - float operations will happen on frontend
+    - float operations will happen in oracle
 - [ ] test cases for harvest and other admin functions
 - [ ] solution for returning UserInfo struct for frontend
 - [x] managing fees and their acquisition during stake and harvest

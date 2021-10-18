@@ -24,13 +24,15 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     struct NftCollection {
-        // some dummy values
-        bool isStakable;
-        address collectionAddress;
-        uint256 stakingFee;
-        uint256 harvestingFee;
-        uint256 multiplier;
-        uint256 maturityPeriod;
+        bool isStakable; // this can disable/enable pool 
+        address collectionAddress; // nft collectiona address
+        uint256 stakingFee; // fee to stake, adjustable
+        uint256 harvestingFee; // fee to harvest, adjustable
+        uint256 multiplier; // boost for certain pools
+        uint256 maturityPeriod; // when will user start receiving rewards
+        uint256 amountOfStakers; // used to decrease rewards as pool becomes bigger
+        uint256 daysStakedMultiplier; // just like multiplier but will multiply the rewards after some time
+        uint256 requiredDaysToMultiply; // "some time"
     }
 
     /// @notice address => each user
@@ -132,6 +134,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         user.tokenIds.push(_id);
         user.tokenIdsMapping[_id] = true;
         user.daysStaked = block.timestamp;
+        collection.amountOfStakers.add(1);
 
         emit UserStaked(_user);
     }
@@ -167,13 +170,14 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             user.tokenIds.pop();
             user.tokenIdsMapping[_id] = false;
             delete user.tokenIndex[_id];
-            user.amountStaked -= 1;
+            user.amountStaked.sub(1);
         }
 
         user.daysStaked = 0;
 
         if (user.amountStaked == 0) {
             delete userInfo[msg.sender];
+            collection.amountOfStakers.sub(1);
         }
 
         emit UserUnstaked(_user);
@@ -200,8 +204,11 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             rarity,
             daysStaked,
             collection.multiplier,
-            100
-        ); // some dummy values
+            collection.amountOfStakers
+        ); 
+        if (collection.daysStakedMultiplier != 0 && user.daysStaked >= collection.requiredDaysToMultiply) {
+            reward = reward.mul(collection.daysStakedMultiplier);
+        }
 
         user.currentReward = user.currentReward.sub(reward);
 
@@ -239,6 +246,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     // ------------------------ GET for frontend ------------------------ //
 
+    /// @notice get NftCollection struct for frontend
     function getCollectionInfo(uint256 _cid)
         public
         view
@@ -256,13 +264,16 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     // ------------------------ ADMIN ------------------------ //
 
+    /// @notice create the collection pool 
     function setCollection(
         bool _isStakable,
         address _collectionAddress,
         uint256 _stakingFee,
         uint256 _harvestingFee,
         uint256 _multiplier,
-        uint256 _maturityPeriod
+        uint256 _maturityPeriod,
+        uint256 _daysStakedMultiplier,
+        uint256 _requiredDaysToMultiply
     ) public onlyOwner {
         nftCollection.push(
             NftCollection({
@@ -271,11 +282,16 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 stakingFee: _stakingFee,
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
-                maturityPeriod: _maturityPeriod
+                maturityPeriod: _maturityPeriod,
+                amountOfStakers: 0,
+                daysStakedMultiplier: _daysStakedMultiplier,
+                requiredDaysToMultiply: _requiredDaysToMultiply
             })
         );
     }
 
+    /// @notice update the collection pool
+    /// @dev compiler weirdly thinks this should be the view funciton. Dont modify
     function updateCollection(
         uint256 _cid,
         bool _isStakable,
@@ -283,7 +299,9 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _stakingFee,
         uint256 _harvestingFee,
         uint256 _multiplier,
-        uint256 _maturityPeriod
+        uint256 _maturityPeriod,
+        uint256 _daysStakedMultiplier,
+        uint256 _requiredDaysToMultiply
     ) public onlyOwner {
         NftCollection memory collection = nftCollection[_cid];
         collection.isStakable = _isStakable;
@@ -291,13 +309,18 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collection.stakingFee = _stakingFee;
         collection.harvestingFee = _harvestingFee;
         collection.multiplier = _multiplier;
+        collection.maturityPeriod = _maturityPeriod;
+        collection.daysStakedMultiplier = _daysStakedMultiplier;
+        collection.requiredDaysToMultiply = _requiredDaysToMultiply;
     }
-
+    /// @notice enable/disable staking in given pool
+    /// @dev compiler weirdly thinks this should be the view funciton. Dont modify
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
         NftCollection memory collection = nftCollection[_cid];
         collection.isStakable = _isStakable;
     }
 
+    /// @dev compiler weirdly thinks this should be the pure funciton. Dont modify
     function onERC721Received(
         address,
         address,
