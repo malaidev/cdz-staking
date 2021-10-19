@@ -19,8 +19,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 currentReward; // how much reward should user get
         uint256 daysStaked; // unix epoch / 60 / 60 / 24
         uint256[] tokenIds; // ids of nfts user staked
-        mapping(uint256 => bool) tokenIdsMapping; // for checking if user really staked tokens
         mapping(uint256 => uint256) tokenIndex; // for delicate operations
+        mapping(address => mapping (uint256 => bool)) stakedInPools; // for checking if user really staked tokens
     }
 
     struct NftCollection {
@@ -59,6 +59,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (collection.stakingFee != 0) {
             require(msg.value == collection.stakingFee, "FEE NOT COVERED");
         }
+        
 
         _stake(msg.sender, _cid, _id);
     }
@@ -132,9 +133,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         );
         user.amountStaked = user.amountStaked.add(1);
         user.tokenIds.push(_id);
-        user.tokenIdsMapping[_id] = true;
         user.daysStaked = block.timestamp;
-        collection.amountOfStakers.add(1);
+        user.stakedInPools[collection.collectionAddress][_id] = true;
 
         emit UserStaked(_user);
     }
@@ -151,8 +151,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
         require(
-            user.tokenIdsMapping[_id] == true,
-            "YOU DONT OWN THE TOKEN AT GIVEN INDEX"
+            user.stakedInPools[collection.collectionAddress][_id] == true,
+            "YOU DONW OWN THESE TOKENS AT GIVEN INDEX"
         );
         IERC721(collection.collectionAddress).safeTransferFrom(
             address(this),
@@ -168,7 +168,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         user.tokenIndex[lastIndexKey] = tokenIdIndex;
         if (user.tokenIds.length > 0) {
             user.tokenIds.pop();
-            user.tokenIdsMapping[_id] = false;
+            user.stakedInPools[collection.collectionAddress][_id] = false;
             delete user.tokenIndex[_id];
             user.amountStaked.sub(1);
         }
@@ -246,6 +246,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     // ------------------------ GET for frontend ------------------------ //
 
+    /*
     /// @notice get NftCollection struct for frontend
     function getCollectionInfo(uint256 _cid)
         public
@@ -255,6 +256,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         NftCollection memory collection = nftCollection[_cid];
         return collection;
     }
+    */
 
     // returning UserInfo is other story, since it contains nested mapping
     // compiler will throw an error that due to this, struct is sitting in storage
