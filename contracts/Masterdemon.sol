@@ -16,7 +16,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     struct UserInfo {
         uint256 amountStaked; // how many nfts did user staked
-        uint256 currentReward; // how much reward should user get
         uint256 daysStaked; // unix epoch / 60 / 60 / 24
         uint256[] tokenIds; // ids of nfts user staked
         mapping(uint256 => uint256) tokenIndex; // for delicate operations
@@ -131,7 +130,11 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             address(this),
             _id
         );
-        user.amountStaked = user.amountStaked.add(1);
+
+        if (user.amountStaked == 0) {
+            collection.amountOfStakers+=1;
+        }
+        user.amountStaked+=1;
         user.tokenIds.push(_id);
         user.daysStaked = block.timestamp;
         user.stakedInPools[collection.collectionAddress][_id] = true;
@@ -160,7 +163,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             _id
         );
 
-        uint256 lastIndex = user.tokenIds.length - 1;
+        uint256 lastIndex = user.tokenIds.length.sub(1);
         uint256 lastIndexKey = user.tokenIds[lastIndex];
         uint256 tokenIdIndex = user.tokenIndex[_id];
 
@@ -209,8 +212,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (collection.daysStakedMultiplier != 0 && user.daysStaked >= collection.requiredDaysToMultiply) {
             reward = reward.mul(collection.daysStakedMultiplier);
         }
-
-        user.currentReward = user.currentReward.sub(reward);
 
         llth.transfer(_user, reward);
         emit UserHarvested(_user);
