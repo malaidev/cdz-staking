@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.7;
-pragma abicoder v2; // using this so we can return struct in get function
+pragma abicoder v2; // using this so we can return struct in get function, p.s is this builtin?
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -257,14 +257,15 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         NftCollection memory collection = nftCollection[_cid];
         return collection;
     }
-   
 
-    // returning UserInfo is other story, since it contains nested mapping
-    // compiler will throw an error that due to this, struct is sitting in storage
-    // but returning a struct can only accept either memory or calldata
-    // this needs to be fixed either with abicoder v2 help or some old way
-    // that i'm not aware of. But since this is not crucial part, we can skip.
-
+    /// @notice returns UserInfo struct 
+    /// @dev maybe not the best way, but we cant return storage structs like we did above
+    function returnUserInfo(address _user) public view returns (uint256 daysStaked, uint256 amountStaked, uint256[] memory tokenIds) {
+        UserInfo storage user = userInfo[_user];
+        daysStaked = user.daysStaked;
+        amountStaked = user.amountStaked;
+        tokenIds = user.tokenIds;
+    }
     // ------------------------ ADMIN ------------------------ //
 
     /// @notice create the collection pool 

@@ -7,7 +7,8 @@
     - simple require check will do the job
 - [x] handling the floats
     - float operations will happen in oracle
-- [ ] solution for returning UserInfo struct for frontend
+- [x] solution for returning UserInfo struct for frontend
+    - we can do it w lil bit of syntax manipulation, also we avoid returning mappings (we dont need them)
 - [x] managing fees and their acquisition during stake and harvest
     - needs some polishing but its done
 - [ ] burning
