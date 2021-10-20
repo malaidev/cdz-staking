@@ -200,7 +200,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         UserInfo storage user = userInfo[_user];
         uint256 daysStaked = block.timestamp.sub(user.daysStaked);
         require(daysStaked <= collection.maturityPeriod, "YOU CANT HARVEST YET");
-        require(collection.isStakable = true, "STAKING HAS FINISHED");
+        require(collection.isStakable == true, "STAKING HAS FINISHED");
         uint256 rarity = _getRarity(collection.collectionAddress, _id);
         require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
         uint256 reward = _calculateRewards(
@@ -247,7 +247,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     // ------------------------ GET for frontend ------------------------ //
 
-    /*
+  
     /// @notice get NftCollection struct for frontend
     function getCollectionInfo(uint256 _cid)
         public
@@ -257,7 +257,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         NftCollection memory collection = nftCollection[_cid];
         return collection;
     }
-    */
+   
 
     // returning UserInfo is other story, since it contains nested mapping
     // compiler will throw an error that due to this, struct is sitting in storage
