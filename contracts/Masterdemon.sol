@@ -91,22 +91,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         _harvest(msg.sender, _cid, _id);
     }
 
-    function batchHarvest(uint256 _cid, uint256[] memory _ids)
-        external
-        payable
-    {
-        NftCollection memory collection = nftCollection[_cid];
-        for (uint256 i = 0; i < _ids.length; ++i) {
-            if (collection.harvestingFee != 0) {
-                require(
-                    msg.value == collection.harvestingFee,
-                    "FEE NOT COVERED"
-                );
-            }
-            _harvest(msg.sender, _cid, _ids[i]);
-        }
-    }
-
     // ------------------------ INTERNAL ------------------------ //
 
     /// @notice stake single nft (called in external function)
@@ -193,8 +177,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /// @dev not finished yet, uses some dummy values
     function _harvest(
         address _user,
-        uint256 _cid,
-        uint256 _id
+        uint256 _cid
     ) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
