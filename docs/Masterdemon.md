@@ -2,6 +2,7 @@
 *author: kaneda*
 
 ## UserInfo
+```javascript
 struct UserInfo {
         uint256 amountStaked; 
         uint256 daysStaked; 
@@ -9,7 +10,7 @@ struct UserInfo {
         mapping(uint256 => uint256) tokenIndex; 
         mapping(address => mapping (uint256 => bool)) stakedInPools; 
     }
-
+```
 Used to track each user and their info. 
 amountStaked: how many nfts did user staked in every pool
 daysStaked: unix epoch / 60 / 60 / 24, representing the days
@@ -18,6 +19,7 @@ tokenIndex: for delicate operations
 stakedInPools: double mapping checks if user really staked given nft in given pool
 
 ## NftCollection
+```javascript
 struct NftCollection {
         bool isStakable; 
         address collectionAddress; 
@@ -29,6 +31,7 @@ struct NftCollection {
         uint256 daysStakedMultiplier; 
         uint256 requiredDaysToMultiply; 
     }
+```
 
 Used to track each collection and their info.
 isStakable: enable/disable pools, we do this instead of deleting them from array
@@ -42,6 +45,7 @@ daysStakedMultiplier: we propose reward boosts after some period of staking
 requiredDaystoMultiply: "some period"
 
 ## stake
+```javascript
 function stake(uint256 _cid, uint256 _id) external payable {
         NftCollection memory collection = nftCollection[_cid];
         if (collection.stakingFee != 0) {
@@ -49,18 +53,20 @@ function stake(uint256 _cid, uint256 _id) external payable {
         }
         _stake(msg.sender, _cid, _id);
     }
-
+```
 External function that calls internal _stake. Just for clean code. All tho, fee collection
 happens here.
 
 ## unstake
+```javascript
 function unstake(uint256 _id, uint256 _cid) external {
         _unstake(msg.sender, _cid, _id);
     }
-
+```
 External function that calls internal _unstake. Just for clean code.
 
 ## stakeBatch
+```javascript
 function stakeBatch(uint256 _cid, uint256[] memory _ids) external payable {
         NftCollection memory collection = nftCollection[_cid];
         for (uint256 i = 0; i < _ids.length; ++i) {
@@ -70,19 +76,21 @@ function stakeBatch(uint256 _cid, uint256[] memory _ids) external payable {
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
-
+```
 External function, loops thru given _ids array and calls internal _stake. Just for clean code.
 
 ## unstakeBatch
+```javascript
 function unstakeBatch(uint256[] memory _ids, uint256 _cid) external {
         for (uint256 i = 0; i < _ids.length; ++i) {
             _unstake(msg.sender, _cid, _ids[i]);
         }
     }
-
+```
 Well, you get the point. We wont cover harvest.
 
 ## _stake
+```javascript
 function _stake(
         address _user,
         uint256 _cid,
@@ -111,7 +119,7 @@ function _stake(
 
         emit UserStaked(_user);
     }
-
+```
 _stake takes 3 parameters, _user (msg.sender), _cid (collection id) and _id (nft id).
 
 Then we call NftCollection struct from nftCollection array at given _cid index.
@@ -132,6 +140,7 @@ assure that in _unstake function, user wont grab others ids.
 And then we emit the event.
 
 ## _unstake
+```javascript
 function _unstake(
         address _user,
         uint256 _cid,
@@ -171,7 +180,7 @@ function _unstake(
 
         emit UserUnstaked(_user);
     }
-
+```
 _unstake takes 3 parameters, _user (msg.sender), _cid (collection id) and _id (nft id).
 
 To make sure that user truly staked given _id in given _cid, we use double mapping:
@@ -190,6 +199,7 @@ user.dayStaked = 0 even if user just unstakes one single nft.
 If user has nothing staked then we remove them from amountOfStakers.
 
 ## _harvest
+```javascript
 function _harvest(
         address _user,
         uint256 _cid,
@@ -214,7 +224,7 @@ function _harvest(
         llth.transfer(_user, reward);
         emit UserHarvested(_user);
     }
-
+```
 As you've noticed, we dont distribute rewards when unstaking, but rather while user clicks on harvest.
 
 First of all, we calculate daysStaked by subtracting the block.timestamp from when user staked to actual block.timestmap,
@@ -236,6 +246,7 @@ And then we transfer rewards to user.
 
 
 ## _getRarity
+```javascript
 function _getRarity(address _collectionAddress, uint256 _id)
         internal
         pure
@@ -244,7 +255,7 @@ function _getRarity(address _collectionAddress, uint256 _id)
         uint256 rarity = 100;
         return rarity;
     }
-
+```
 Dummy function, will be replaced by proper oracle call. Returns number between 50 and 350 representing the rarity
 of the nft based on its traits. We calculate this with traits normalization.
 
