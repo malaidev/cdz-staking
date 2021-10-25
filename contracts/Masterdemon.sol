@@ -32,6 +32,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 amountOfStakers; // used to decrease rewards as pool becomes bigger
         uint256 daysStakedMultiplier; // just like multiplier but will multiply the rewards after some time
         uint256 requiredDaysToMultiply; // "some time"
+        uint256 maxDaysForStaking; // limit for staking
     }
 
     /// @notice address => each user
@@ -42,6 +43,9 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     /// @notice LLTH token
     IERC20 public llth;
+
+    /// @notice how many nfts can user stake
+    uint256 public stakingLimit = 60;
 
     event UserStaked(address staker);
     event UserUnstaked(address unstaker);
@@ -102,6 +106,10 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     ) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
+        require(
+            user.amountStaked < stakingLimit,
+            "YOU CANT STAKE MORE"
+        );
         require(
             IERC721(collection.collectionAddress).ownerOf(_id) ==
                 address(_user),
@@ -181,6 +189,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 daysStaked = block.timestamp.sub(user.daysStaked);
         require(daysStaked <= collection.maturityPeriod, "YOU CANT HARVEST YET");
         require(collection.isStakable == true, "STAKING HAS FINISHED");
+        require(user.daysStaked < collection.maxDaysForStaking, "YOU'VE REACHED THE LIMIT, PLEASE UNSTAKE");
         uint256 rarity = _getRarity(collection.collectionAddress, _cid);
         require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
         uint256 reward = _calculateRewards(
@@ -257,7 +266,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _multiplier,
         uint256 _maturityPeriod,
         uint256 _daysStakedMultiplier,
-        uint256 _requiredDaysToMultiply
+        uint256 _requiredDaysToMultiply,
+        uint256 _maxDaysForStaking
     ) public onlyOwner {
         nftCollection.push(
             NftCollection({
@@ -269,7 +279,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 maturityPeriod: _maturityPeriod,
                 amountOfStakers: 0,
                 daysStakedMultiplier: _daysStakedMultiplier,
-                requiredDaysToMultiply: _requiredDaysToMultiply
+                requiredDaysToMultiply: _requiredDaysToMultiply,
+                maxDaysForStaking: _maxDaysForStaking
             })
         );
     }
@@ -285,7 +296,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _multiplier,
         uint256 _maturityPeriod,
         uint256 _daysStakedMultiplier,
-        uint256 _requiredDaysToMultiply
+        uint256 _requiredDaysToMultiply,
+        uint256 _maxDaysForStaking
     ) public onlyOwner {
         NftCollection memory collection = nftCollection[_cid];
         collection.isStakable = _isStakable;
@@ -296,12 +308,28 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collection.maturityPeriod = _maturityPeriod;
         collection.daysStakedMultiplier = _daysStakedMultiplier;
         collection.requiredDaysToMultiply = _requiredDaysToMultiply;
+        collection.maxDaysForStaking = _maxDaysForStaking;
     }
     /// @notice enable/disable staking in given pool
     /// @dev compiler weirdly thinks this should be the view funciton. Dont modify
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
         NftCollection memory collection = nftCollection[_cid];
         collection.isStakable = _isStakable;
+    }
+
+    /// @notice change the staking limit
+    function changeLimit(uint256 _amount) public onlyOwner {
+        require(stakingLimit != _amount, "VALUE ALREADY SET");
+        stakingLimit = _amount;
+    }
+
+    /// @notice stop staking in every single pool, BE CAREFUL VERY RISKY
+    function emergencyStop(uint256 _confirmationPin) public onlyOwner {
+        require(_confirmationPin == 19121, "PLEASE CONFIRM THE PIN");
+        for (uint256 i=0; i<nftCollection.length; ++i) {
+            NftCollection memory collection = nftCollection[i];
+            collection.isStakable = false;
+        }
     }
 
     /// @dev compiler weirdly thinks this should be the pure funciton. Dont modify
