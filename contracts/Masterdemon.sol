@@ -58,8 +58,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (collection.stakingFee != 0) {
             require(msg.value == collection.stakingFee, "FEE NOT COVERED");
         }
-        
-
         _stake(msg.sender, _cid, _id);
     }
 
@@ -69,10 +67,10 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     function stakeBatch(uint256 _cid, uint256[] memory _ids) external payable {
         NftCollection memory collection = nftCollection[_cid];
-        for (uint256 i = 0; i < _ids.length; ++i) {
-            if (collection.stakingFee != 0) {
-                require(msg.value == collection.stakingFee, "FEE NOT COVERED");
+        if (collection.stakingFee != 0) {
+                require(msg.value.div(_ids.length) >= collection.stakingFee, "FEE NOT COVERED");
             }
+        for (uint256 i = 0; i < _ids.length; ++i) {
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -83,12 +81,12 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         }
     }
 
-    function harvest(uint256 _cid, uint256 _id) external payable {
+    function harvest(uint256 _cid) external payable {
         NftCollection memory collection = nftCollection[_cid];
         if (collection.harvestingFee != 0) {
             require(msg.value == collection.harvestingFee, "FEE NOT COVERED");
         }
-        _harvest(msg.sender, _cid, _id);
+        _harvest(msg.sender, _cid);
     }
 
     // ------------------------ INTERNAL ------------------------ //
@@ -173,7 +171,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /// @notice during harvest, user gets rewards
     /// @param _user: user address
     /// @param _cid: collection id
-    /// @param _id: nft id
     /// @dev not finished yet, uses some dummy values
     function _harvest(
         address _user,
@@ -184,7 +181,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 daysStaked = block.timestamp.sub(user.daysStaked);
         require(daysStaked <= collection.maturityPeriod, "YOU CANT HARVEST YET");
         require(collection.isStakable == true, "STAKING HAS FINISHED");
-        uint256 rarity = _getRarity(collection.collectionAddress, _id);
+        uint256 rarity = _getRarity(collection.collectionAddress, _cid);
         require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
         uint256 reward = _calculateRewards(
             rarity,
