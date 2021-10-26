@@ -49,12 +49,15 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     event UserStaked(address staker);
     event UserUnstaked(address unstaker);
-    event UserHarvested(address harvester);
+    event UserHarvested(address harvester, uint256 reward);
 
     constructor(IERC20 _llth) {
         llth = _llth;
     }
 
+    function setLLTH(address _llth) external {
+        llth = IERC20(_llth);
+    }
     // ------------------------ PUBLIC/EXTERNAL ------------------------ //
 
     function stake(uint256 _cid, uint256 _id) external payable {
@@ -186,8 +189,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     ) internal {
         NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
-        uint256 daysStaked = block.timestamp.sub(user.daysStaked);
-        require(daysStaked <= collection.maturityPeriod, "YOU CANT HARVEST YET");
+        uint256 daysStaked = block.timestamp.sub(user.daysStaked).div(86400);
+        require(daysStaked >= collection.maturityPeriod, "YOU CANT HARVEST YET");
         require(collection.isStakable == true, "STAKING HAS FINISHED");
         require(user.daysStaked < collection.maxDaysForStaking, "YOU'VE REACHED THE LIMIT, PLEASE UNSTAKE");
         uint256 rarity = _getRarity(collection.collectionAddress, _cid);
@@ -202,8 +205,9 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             reward = reward.mul(collection.daysStakedMultiplier);
         }
 
+        require(llth.balanceOf(address(this)) >= reward, "Not enough LLTH token");
         llth.transfer(_user, reward);
-        emit UserHarvested(_user);
+        emit UserHarvested(_user, reward);
     }
 
     /// @notice dummy function, will be replaced by oracle later
@@ -277,7 +281,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 0,
+                amountOfStakers: 200,
                 daysStakedMultiplier: _daysStakedMultiplier,
                 requiredDaysToMultiply: _requiredDaysToMultiply,
                 maxDaysForStaking: _maxDaysForStaking

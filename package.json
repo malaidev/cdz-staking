@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "@openzeppelin/contracts": "^4.3.1",
-    "truffle": "^5.4.13"
+    "ethers": "^5.5.1",
+    "truffle": "^5.4.13",
+    "truffle-assertions": "^0.9.2"
   }
 }

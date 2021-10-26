@@ -4,7 +4,6 @@ const MockCollection = artifacts.require("MockCollection");
 
 module.exports = async (deployer) => {
     await deployer.deploy(MockCollection);
-
-    await deployer.deploy(MockLLTH)
-        .then((pre) => deployer.deploy(Masterdemon, pre.address))
+    const llth = await deployer.deploy(MockLLTH);
+    await deployer.deploy(Masterdemon, llth.address);
 }
