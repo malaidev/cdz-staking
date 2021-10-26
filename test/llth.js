@@ -18,12 +18,6 @@ contract("MockLLTH", async accounts => {
 
   let stakedTimeStamp;
 
-  console.log("--------- Accounts ----------");
-  for(var i = 0; i < accounts.length; i++) {
-    console.log(accounts[i]);
-  }
-  console.log("-----------------------------");
-
   beforeEach(async function () {
     llth = await MockLLTH.deployed();
     collection = await MockCollection.deployed();
@@ -65,7 +59,6 @@ contract("MockLLTH", async accounts => {
 
   });
   
-
   // booster: 1, daysStaked: 30, rarity*normalizer: 100, poolSize: 200 ==> reward should be 15
   it("[ MasterDemon ] harvesting, should send reward 15 LLTH", async () => {
     const moveToDate = stakedTimeStamp.toNumber() + duration.days(30);
@@ -81,7 +74,6 @@ contract("MockLLTH", async accounts => {
     assert.equal(balanceLLTH, 15);
   });
 
-  
   it("[ MasterDemon ] unstaking nft 0 of staking contract to account[0]", async () => {
     // unstake with Params cid: 0, nftId: 0
     await masterDemon.unstake(0, 0);
