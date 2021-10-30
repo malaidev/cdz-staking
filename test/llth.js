@@ -1,3 +1,6 @@
+/***************************************** DUE TO NEW CONTRACT ALL TESTS ARE USELESS, DO NOT USE *****************************************/
+/***************************************** DO NOT DELETE EITHER. GOOD REFERENCE FOR NEW TESTS *****************************************/
+
 const MockLLTH = artifacts.require("MockLLTH");
 const MockCollection = artifacts.require("MockCollection");
 

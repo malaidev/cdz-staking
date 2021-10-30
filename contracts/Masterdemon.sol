@@ -1,267 +1,311 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.7;
-pragma abicoder v2; // using this so we can return struct in get function, p.s is this builtin?
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./mocks/MockLLTH.sol";
+
 contract Masterdemon is Ownable, ReentrancyGuard {
-    using SafeMath for uint256;
     using Address for address;
 
+    /**
+    *    @notice keep track of each user and their info
+    *
+    *    'stakedTokens' => mapping of collection address and array of staked ids
+    *    in given collection. 
+    *    'amountStaked' => keep track of total amount of nfts staked in any pool
+    *    'userBalance' => somewhat unnecessary addition, to keep track of user rewards.
+    *    this becomes always 0 after _harvest, so removing it might be a good thing.
+    */
     struct UserInfo {
-        uint256 amountStaked; // how many nfts did user staked
-        uint256 daysStaked; // unix epoch / 60 / 60 / 24
-        uint256[] tokenIds; // ids of nfts user staked
-        mapping(uint256 => uint256) tokenIndex; // for delicate operations
-        mapping(address => mapping (uint256 => bool)) stakedInPools; // for checking if user really staked tokens
+        mapping(address => uint256[]) stakedTokens;
+        uint256 amountStaked;
+        uint256 daysStaked;
+        uint256 userBalance;
     }
 
-    struct NftCollection {
-        bool isStakable; // this can disable/enable pool 
-        address collectionAddress; // nft collectiona address
-        uint256 stakingFee; // fee to stake, adjustable
-        uint256 harvestingFee; // fee to harvest, adjustable
-        uint256 multiplier; // boost for certain pools
-        uint256 maturityPeriod; // when will user start receiving rewards
-        uint256 amountOfStakers; // used to decrease rewards as pool becomes bigger
-        uint256 daysStakedMultiplier; // just like multiplier but will multiply the rewards after some time
-        uint256 requiredDaysToMultiply; // "some time"
-        uint256 maxDaysForStaking; // limit for staking
+    /**
+    *    @notice keep track of each collection and their info
+    *
+    *    'isStakable' => instead of deleting the collection from mapping/array,
+    *    we use simple bool to disable it. By this we avoid possible complications 
+    *    of holes in arrays (due to lack of deleting items at index in solidity),
+    *    sacrificing overall performance. 
+    *    'collectionAddress' => ethereum address of given contract
+    *    'stakingFee' => simple msg.value
+    *    'harvestingFee' => simple msg.value
+    *    'multiplier' => boost collections by increasing rewards
+    *    'maturityPeriod' => represented in days, this will assure that user has to
+    *    stake for "some time" to start accumulating rewards
+    *    'amountOfStakers' => amount of people in given collection, used to decrease 
+    *    rewards as collection popularity rises
+    *    'maxDaysForStaking' => each collection will have staking limit that will be
+    *    represented in days. Users can stake freely before they reach this limit, then
+    *    either they cheat thru staking from other account or they move to another pool
+    *    'stakingLimit' => another limitation, represented in amount of staked nfts in
+    *    particular collection. Users can stake freely before they reach this limit and 
+    *    again, either they cheat thru staking from other account or they move to another
+    *    pool.         
+     */
+    struct CollectionInfo {
+        bool isStakable;
+        address collectionAddress;
+        uint256 stakingFee;
+        uint256 harvestingFee;
+        uint256 multiplier;
+        uint256 maturityPeriod;
+        uint256 amountOfStakers;
+        uint256 maxDaysForStaking;
+        uint256 stakingLimit;
     }
 
-    /// @notice address => each user
+    /**
+    *    @notice map user addresses over their info
+     */
     mapping(address => UserInfo) public userInfo;
 
-    /// @notice array of each nft collection
-    NftCollection[] public nftCollection;
+    /**
+    *    @notice colleciton address => (staked nft => user address)
+    *    @dev would be nice if replace uint256 to uint256[]
+     */
+    mapping(address => mapping(uint256 => address)) public tokenOwners;
 
-    /// @notice LLTH token
-    IERC20 public llth;
+    /**
+    *   @notice array of each collection, we search thru this by _cid (collection address)
+     */
+    CollectionInfo[] public collectionInfo;
 
-    /// @notice how many nfts can user stake
-    uint256 public stakingLimit = 60;
+    /**
+        @notice Lilith token
+     */
+    MockLLTH public llth;
 
-    event UserStaked(address staker);
-    event UserUnstaked(address unstaker);
-    event UserHarvested(address harvester, uint256 reward);
-
-    constructor(IERC20 _llth) {
+    constructor(MockLLTH _llth) {
         llth = _llth;
     }
 
-    function setLLTH(address _llth) external {
-        llth = IERC20(_llth);
-    }
-    // ------------------------ PUBLIC/EXTERNAL ------------------------ //
-
-    function stake(uint256 _cid, uint256 _id) external payable {
-        NftCollection memory collection = nftCollection[_cid];
-        if (collection.stakingFee != 0) {
-            require(msg.value == collection.stakingFee, "FEE NOT COVERED");
-        }
+    function stake(uint256 _cid, uint256 _id) external {
         _stake(msg.sender, _cid, _id);
     }
 
-    function unstake(uint256 _id, uint256 _cid) external {
-        _unstake(msg.sender, _cid, _id);
-    }
-
-    function stakeBatch(uint256 _cid, uint256[] memory _ids) external payable {
-        NftCollection memory collection = nftCollection[_cid];
-        if (collection.stakingFee != 0) {
-                require(msg.value.div(_ids.length) >= collection.stakingFee, "FEE NOT COVERED");
-            }
-        for (uint256 i = 0; i < _ids.length; ++i) {
+    function batchStake(uint256 _cid, uint256[] memory _ids) external {
+        for (uint256 i; i < _ids.length; ++i) {
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
 
-    function unstakeBatch(uint256[] memory _ids, uint256 _cid) external {
-        for (uint256 i = 0; i < _ids.length; ++i) {
+    function unstake(uint256 _cid, uint256 _id) external {
+        _unstake(msg.sender, _cid, _id);
+    }
+
+    function batchUnstake(uint256 _cid, uint256[] memory _ids) external {
+        for (uint256 i; i < _ids.length; ++i) {
             _unstake(msg.sender, _cid, _ids[i]);
         }
     }
 
-    function harvest(uint256 _cid) external payable {
-        NftCollection memory collection = nftCollection[_cid];
-        if (collection.harvestingFee != 0) {
-            require(msg.value == collection.harvestingFee, "FEE NOT COVERED");
-        }
-        _harvest(msg.sender, _cid);
-    }
+    /**
+    *    @notice internal stake function, called in external stake and batchStake
+    *    @param _user => msg.sender
+    *    @param _cid => collection id, to get correct one from array
+    *    @param _id => nft id
 
-    // ------------------------ INTERNAL ------------------------ //
-
-    /// @notice stake single nft (called in external function)
-    /// @param _user = msg.sender
-    /// @param _cid = collection id
-    /// @param _id = nft id
+    *    - First we have to check if user reached the staking limitation.
+    *    - We transfer their NFT to contract
+    *    - If user never staked here before, we increment amountOfStakers
+    *    - increment amountStaked by 1
+    *    - Start tracking of daysStaked with timestamp
+    *    - populate stakedTokens mapping
+    *    - populate tokenOwners double mapping with user's address
+     */
     function _stake(
         address _user,
         uint256 _cid,
         uint256 _id
     ) internal {
-        NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
+        CollectionInfo memory collection = collectionInfo[_cid];
+
         require(
-            user.amountStaked < stakingLimit,
-            "YOU CANT STAKE MORE"
+            user.stakedTokens[collection.collectionAddress].length <
+                collection.stakingLimit,
+            "Masterdemon._stake: You can't stake more"
         );
-        require(
-            IERC721(collection.collectionAddress).ownerOf(_id) ==
-                address(_user),
-            "ERR: YOU DONT OWN THIS TOKEN"
-        );
+
         IERC721(collection.collectionAddress).safeTransferFrom(
             _user,
             address(this),
             _id
         );
 
-        if (user.amountStaked == 0) {
-            collection.amountOfStakers+=1;
+        if (user.stakedTokens[collection.collectionAddress].length == 0) {
+            collection.amountOfStakers += 1;
         }
-        user.amountStaked+=1;
-        user.tokenIds.push(_id);
-        user.daysStaked = block.timestamp;
-        user.stakedInPools[collection.collectionAddress][_id] = true;
 
-        emit UserStaked(_user);
+        user.amountStaked += 1;
+        user.daysStaked = block.timestamp;
+        user.stakedTokens[collection.collectionAddress].push(_id);
+        tokenOwners[collection.collectionAddress][_id] = _user;
     }
 
-    /// @notice unstake single nft (called in external function)
-    /// @param _user = msg.sender
-    /// @param _cid = collection id
-    /// @param _id = nft id
+    /**
+    *    @notice internal unstake function, called in external unstake and batchUnstake
+    *    @param _user => msg.sender
+    *    @param _cid => collection id, to get correct one from array
+    *    @param _id => nft id
+    *       
+    *    - Important require statement checks if user really staked in given collection
+    *    with help of double mapping
+    *    - If it's okay, we return the tokens, without minting any rewards
+    *    - Next several lines are for delicate array manipulation
+    *    - delete id from stakedTokens mapping => array
+    *    - delete user from tokenOwners double mapping
+    *    - reset user's daysStaked
+    *    - if user has nothing left in given collection, deincrement amountOfstakers
+    *    - if user has nothing staked at all (in any collection), delete their struct
+     */
     function _unstake(
         address _user,
         uint256 _cid,
         uint256 _id
     ) internal {
-        NftCollection memory collection = nftCollection[_cid];
         UserInfo storage user = userInfo[_user];
+        CollectionInfo memory collection = collectionInfo[_cid];
+
         require(
-            user.stakedInPools[collection.collectionAddress][_id] == true,
-            "YOU DONW OWN THESE TOKENS AT GIVEN INDEX"
+            tokenOwners[collection.collectionAddress][_id] == _user,
+            "Masterdemon._unstake: Sender doesn't owns this token"
         );
+
         IERC721(collection.collectionAddress).safeTransferFrom(
             address(this),
             _user,
             _id
         );
 
-        uint256 lastIndex = user.tokenIds.length.sub(1);
-        uint256 lastIndexKey = user.tokenIds[lastIndex];
-        uint256 tokenIdIndex = user.tokenIndex[_id];
 
-        user.tokenIds[tokenIdIndex] = lastIndexKey;
-        user.tokenIndex[lastIndexKey] = tokenIdIndex;
-        if (user.tokenIds.length > 0) {
-            user.tokenIds.pop();
-            user.stakedInPools[collection.collectionAddress][_id] = false;
-            delete user.tokenIndex[_id];
-            user.amountStaked.sub(1);
-        }
-
+        delete user.stakedTokens[collection.collectionAddress][_id];
+        delete tokenOwners[collection.collectionAddress][_id];
         user.daysStaked = 0;
 
-        if (user.amountStaked == 0) {
-            delete userInfo[msg.sender];
-            collection.amountOfStakers.sub(1);
+        if (user.stakedTokens[collection.collectionAddress].length == 0) {
+            collection.amountOfstakers -= 1;
         }
 
-        emit UserUnstaked(_user);
+        if (user.stakedAmount == 0) {
+            delete userInfo[_user];
+        }
+
     }
 
-    /// @notice during harvest, user gets rewards
-    /// @param _user: user address
-    /// @param _cid: collection id
-    /// @dev not finished yet, uses some dummy values
-    function _harvest(
-        address _user,
-        uint256 _cid
-    ) internal {
-        NftCollection memory collection = nftCollection[_cid];
+    /**
+    *    @notice internal _harvest function, called in external harvest
+    *    @param _user => msg.sender
+    *    @param _cid => collection id
+    *    @dev i have some doubts on this function, needs careful rechecking thru unit testing
+    *    
+    *    - Calculating daysStaked by converting unix epoch to days (dividing on 60 / 60 / 24)
+    *    - Collection must be stakable
+    *    - daysStaked must be over maturityPeriod of given collection
+    *    - daysStaked must be less than maxDaysForStaking limitation of given collection
+    *    - To sum rewards from every single nft staked in given collection, we are looping
+    *    thru user.stakedTokens mapping of address => array.
+    *    - Since deleting stuff from array at particular index leaves holes, we need to check
+    *    only for item.bytes.length > 0. 
+    *    - Check rarity of each token, calculate rewards and push them into user.userBalance
+    *    - Mint rewards
+    *    - Reset userBalance to 0.
+     */
+    function _harvest(address _user, uint256 _cid) internal {
         UserInfo storage user = userInfo[_user];
-        uint256 daysStaked = block.timestamp.sub(user.daysStaked).div(86400);
-        require(daysStaked >= collection.maturityPeriod, "YOU CANT HARVEST YET");
-        require(collection.isStakable == true, "STAKING HAS FINISHED");
-        require(user.daysStaked < collection.maxDaysForStaking, "YOU'VE REACHED THE LIMIT, PLEASE UNSTAKE");
-        uint256 rarity = _getRarity(collection.collectionAddress, _cid);
-        require(rarity >= 50 && rarity <= 350, "WRONG RANGE, CHECK NORMALIZER");
-        uint256 reward = _calculateRewards(
-            rarity,
-            daysStaked,
-            collection.multiplier,
-            collection.amountOfStakers
-        ); 
-        if (collection.daysStakedMultiplier != 0 && user.daysStaked >= collection.requiredDaysToMultiply) {
-            reward = reward.mul(collection.daysStakedMultiplier);
+        CollectionInfo memory collection = collectionInfo[_cid];
+
+        uint256 daysStaked = (block.timestamp - user.daysStaked) / 86400;
+
+        require(
+            collection.isStakable == true,
+            "Masterdemon._harvest: Staking in given pool has finished"
+        );
+        require(
+            daysStaked >= collection.maturityPeriod,
+            "Masterdemon._harvest: You can't harvest yet"
+        );
+        require(
+            daysStaked < collection.maxDaysForStaking,
+            "Masterdemon._harvest: You have reached staking period limit"
+        );
+
+        for (
+            uint256 i;
+            i < user.stakedTokens[collection.collectionAddress].length;
+            ++i
+        ) {
+            if (
+                abi
+                    .encodePacked(
+                        user.stakedTokens[collection.collectionAddress][i]
+                    )
+                    .length > 0
+            ) {
+                uint256 currentId = user.stakedTokens[
+                    collection.collectionAddress
+                ][i];
+                uint256 rarity = _getRarity(
+                    collection.collectionAddress,
+                    currentId
+                );
+                require(
+                    rarity >= 50 && rarity <= 350,
+                    "Masterdemon._harvest: Wrong range"
+                );
+                uint256 reward = _getReward(
+                    rarity,
+                    user.daysStaked,
+                    collection.multiplier,
+                    collection.amountOfStakers
+                );
+                user.userBalance += reward;
+            }
         }
 
-        require(llth.balanceOf(address(this)) >= reward, "Not enough LLTH token");
-        llth.transfer(_user, reward);
-        emit UserHarvested(_user, reward);
+        llth.mint(_user, user.userBalance);
+        user.userBalance = 0;
     }
-
-    /// @notice dummy function, will be replaced by oracle later
-    function _getRarity(address _collectionAddress, uint256 _id)
+    /**
+    *   @notice dummy function, needs implementation
+     */
+    function _getRarity(address _collectionAddress, uint256 _nftId)
         internal
-        pure
-        returns (uint256)
+        returns (uint256 rarity)
     {
-        uint256 rarity = 100;
-        return rarity;
+        rarity = 100; // dummy
     }
 
-    /// @notice will calculate rarity based on our formula
-    /// @param _rarity number given my trait normalization formula
-    /// @param _daysStaked maturity period
-    /// @param _multiplier pool can have multiplier
-    /// @param _amountOfStakers used to minimize rewards proportionally to pool popularity
-    function _calculateRewards(
+    /**
+    *    @notice calculate rewards of each NFT based on our formula 
+    *    {see whitepaper for clear explanation}
+     */
+    function _getReward(
         uint256 _rarity,
         uint256 _daysStaked,
         uint256 _multiplier,
         uint256 _amountOfStakers
     ) internal pure returns (uint256) {
-        uint256 baseMultiplier = _multiplier.mul(_daysStaked);
-        uint256 basemultiplierxRarity = baseMultiplier.mul(_rarity);
-        uint256 finalReward = basemultiplierxRarity.div(_amountOfStakers);
+        uint256 baseMultiplier = _multiplier * _daysStaked;
+        uint256 basemultiplierxRarity = baseMultiplier * _rarity;
+        uint256 finalReward = basemultiplierxRarity / _amountOfStakers;
 
         return finalReward;
     }
 
-    // ------------------------ GET for frontend ------------------------ //
-
-  
-    /// @notice get NftCollection struct for frontend
-    function getCollectionInfo(uint256 _cid)
-        public
-        view
-        returns (NftCollection memory)
-    {
-        NftCollection memory collection = nftCollection[_cid];
-        return collection;
-    }
-
-    /// @notice returns UserInfo struct 
-    /// @dev maybe not the best way, but we cant return storage structs like we did above
-    function returnUserInfo(address _user) public view returns (uint256 daysStaked, uint256 amountStaked, uint256[] memory tokenIds) {
-        UserInfo storage user = userInfo[_user];
-        daysStaked = user.daysStaked;
-        amountStaked = user.amountStaked;
-        tokenIds = user.tokenIds;
-    }
-    // ------------------------ ADMIN ------------------------ //
-
-    /// @notice create the collection pool 
+    /**
+    *    @notice initialize new collection
+    *    {see struct for param definition}
+     */
     function setCollection(
         bool _isStakable,
         address _collectionAddress,
@@ -269,28 +313,28 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _daysStakedMultiplier,
-        uint256 _requiredDaysToMultiply,
-        uint256 _maxDaysForStaking
+        uint256 _maxDaysForStaking,
+        uint256 _stakingLimit
     ) public onlyOwner {
-        nftCollection.push(
-            NftCollection({
+        collectionInfo.push(
+            CollectionInfo({
                 isStakable: _isStakable,
                 collectionAddress: _collectionAddress,
                 stakingFee: _stakingFee,
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 200,
-                daysStakedMultiplier: _daysStakedMultiplier,
-                requiredDaysToMultiply: _requiredDaysToMultiply,
-                maxDaysForStaking: _maxDaysForStaking
+                amountOfStakers: 200, // notice, its for testing purposes. this should be 0 in production
+                maxDaysForStaking: _maxDaysForStaking,
+                stakingLimit: _stakingLimit
             })
         );
     }
 
-    /// @notice update the collection pool
-    /// @dev compiler weirdly thinks this should be the view funciton. Dont modify
+    /**
+    *    @notice update collection
+    *    {see struct for param definition}
+     */
     function updateCollection(
         uint256 _cid,
         bool _isStakable,
@@ -299,44 +343,47 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _daysStakedMultiplier,
-        uint256 _requiredDaysToMultiply,
-        uint256 _maxDaysForStaking
+        uint256 _maxDaysForStaking,
+        uint256 _stakingLimit
     ) public onlyOwner {
-        NftCollection memory collection = nftCollection[_cid];
+        CollectionInfo memory collection = collectionInfo[_cid];
         collection.isStakable = _isStakable;
         collection.collectionAddress = _collectionAddress;
         collection.stakingFee = _stakingFee;
         collection.harvestingFee = _harvestingFee;
         collection.multiplier = _multiplier;
         collection.maturityPeriod = _maturityPeriod;
-        collection.daysStakedMultiplier = _daysStakedMultiplier;
-        collection.requiredDaysToMultiply = _requiredDaysToMultiply;
         collection.maxDaysForStaking = _maxDaysForStaking;
+        collection.stakingLimit = _stakingLimit;
     }
-    /// @notice enable/disable staking in given pool
-    /// @dev compiler weirdly thinks this should be the view funciton. Dont modify
+
+    /**
+    *    @notice enable/disable collections
+    *    @param _cid => collection id
+    *    @param _isStakable => enable/disable
+     */
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
-        NftCollection memory collection = nftCollection[_cid];
+        CollectionInfo memory collection = collectionInfo[_cid];
         collection.isStakable = _isStakable;
     }
 
-    /// @notice change the staking limit
-    function changeLimit(uint256 _amount) public onlyOwner {
-        require(stakingLimit != _amount, "VALUE ALREADY SET");
-        stakingLimit = _amount;
-    }
-
-    /// @notice stop staking in every single pool, BE CAREFUL VERY RISKY
+    /**
+    *    @notice stop every single collection, BE CAREFUL
+    *    @param _confirmationPin => dummy pin to avoid "missclicking"
+     */
     function emergencyStop(uint256 _confirmationPin) public onlyOwner {
-        require(_confirmationPin == 19121, "PLEASE CONFIRM THE PIN");
-        for (uint256 i=0; i<nftCollection.length; ++i) {
-            NftCollection memory collection = nftCollection[i];
-            collection.isStakable = false;
+        require(
+            _confirmationPin == 666,
+            "Masterdemon.emergencyStop: Please provide the correct pin"
+        );
+        for (uint256 i = 0; i < collectionInfo.length; ++i) {
+            CollectionInfo memory collection = collectionInfo[i];
+            if (collection.isStakable = true) { 
+                collection.isStakable = false;
+            }
         }
     }
 
-    /// @dev compiler weirdly thinks this should be the pure funciton. Dont modify
     function onERC721Received(
         address,
         address,
