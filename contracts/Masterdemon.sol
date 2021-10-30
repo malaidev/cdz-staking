@@ -193,10 +193,10 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         user.daysStaked = 0;
 
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
-            collection.amountOfstakers -= 1;
+            collection.amountOfStakers -= 1;
         }
 
-        if (user.stakedAmount == 0) {
+        if (user.amountStaked == 0) {
             delete userInfo[_user];
         }
 
