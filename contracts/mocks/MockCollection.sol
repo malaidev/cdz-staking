@@ -8,9 +8,9 @@ contract MockCollection is ERC721Enumerable {
 
     uint256 count = 0;
     
-    function mint(uint256 _amount) public {
+    function mint(uint256 _amount, address _user) public {
         for (uint256 i; i<_amount; ++i) {
-            _safeMint(msg.sender, totalSupply());
+            _safeMint(_user, totalSupply());
             incrementId();
         }
     }

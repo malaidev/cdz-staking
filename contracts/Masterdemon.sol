@@ -84,7 +84,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
      */
     MockLLTH public llth;
 
-    constructor(MockLLTH _llth) {
+    constructor(MockLLTH _llth) public {
         llth = _llth;
     }
 
@@ -93,7 +93,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     function batchStake(uint256 _cid, uint256[] memory _ids) external {
-        for (uint256 i; i < _ids.length; ++i) {
+        for (uint256 i=0; i < _ids.length; ++i) {
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -103,7 +103,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     function batchUnstake(uint256 _cid, uint256[] memory _ids) external {
-        for (uint256 i; i < _ids.length; ++i) {
+        for (uint256 i=0; i < _ids.length; ++i) {
             _unstake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -206,8 +206,10 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
         // delete will leave 0x000...000
         delete tokenOwners[collection.collectionAddress][_id];
-        user.daysStaked = 0;
 
+        user.daysStaked = 0;
+        user.amountStaked -= 1;
+        
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
             collection.amountOfStakers -= 1;
         }
@@ -388,6 +390,25 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             }
         }
     }
+
+    function getUser(address _user, address _collection) public view returns (uint256, uint256, uint256, uint256[] memory){
+        UserInfo storage user = userInfo[_user];
+        uint256 amountStaked = user.amountStaked;
+        uint256 daysStaked = (block.timestamp - user.daysStaked) / 60 / 60 / 24;
+        uint256 userBalance = user.userBalance;
+        uint256[] memory stakedTokens = user.stakedTokens[_collection];
+
+        return (amountStaked, daysStaked, userBalance, stakedTokens);
+    }
+
+    /*
+    struct UserInfo {
+        mapping(address => uint256[]) stakedTokens;
+        uint256 amountStaked;
+        uint256 daysStaked;
+        uint256 userBalance;
+    }
+    */
 
     function onERC721Received(
         address,
