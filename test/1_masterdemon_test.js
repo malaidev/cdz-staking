@@ -12,9 +12,9 @@ contract(
     let masterdemon;
 
     beforeEach(async () => {
-      llth = await LLTH.deployed();
-      collection = await Collection.deployed();
-      masterdemon = await Masterdemon.deployed();
+      llth = await LLTH.new();
+      collection = await Collection.new();
+      masterdemon = await Masterdemon.new(llth.address)
 
       // _id = 0
       collection.mint(4, accounts[0]);
@@ -51,6 +51,7 @@ contract(
 
     it('[ Masterdemon ] Should Allow Batch Staking', async () => {
       let amountStaked;
+      await collection.setApprovalForAll(masterdemon.address, true);
       await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0] });
       await masterdemon.getUser(accounts[0], collection.address).then((res) => {
         amountStaked = res['0'];
@@ -61,24 +62,27 @@ contract(
 
     it('[ Masterdemon ] Should Allow Unstaking', async () => {
       let amountStaked;
-      await masterdemon.unstake(0, 1, { from: accounts[0] });
+      await collection.setApprovalForAll(masterdemon.address, true);
+      await masterdemon.stake(0, 0, { from: accounts[0] });
+      await masterdemon.unstake(0, 0, { from: accounts[0] });
       await masterdemon.getUser(accounts[0], collection.address).then((res) => {
         amountStaked = res['0'];
       });
 
-      assert.equal(amountStaked.words[0], 3);
+      assert.equal(amountStaked.words[0], 0);
     });
 
-    // it('[ Masterdemon ] Should Allow Batch Unstaking', async () => {
-    //   let amountStaked;
-    //   await masterdemon.batchUnstake(0, [0, 2, 3], { from: accounts[0] });
-    //   await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-    //     amountStaked = res['3'];
-    //     console.log(amountStaked);
-    //   });
+    it('[ Masterdemon ] Should Allow Batch Unstaking', async () => {
+      let amountStaked;
+      await collection.setApprovalForAll(masterdemon.address, true);
+      await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0] });
+      await masterdemon.batchUnstake(0, [1, 2, 3], { from: accounts[0] });
+      await masterdemon.getUser(accounts[0], collection.address).then((res) => {
+        amountStaked = res['0'];
+      });
 
-      //assert.equal(amountStaked.words[0], 0);
-    // });
+      assert.equal(amountStaked.words[0], 0);
+    });
   },
 );
 
@@ -95,7 +99,7 @@ contract(
       masterdemon = await Masterdemon.deployed();
 
       // _id = 0
-      collection.mint(3, accounts[0]);
+      collection.mint(1, accounts[0]);
       collection.mint(1, accounts[1]);
 
       // _cid = 0
@@ -114,8 +118,6 @@ contract(
     it(" [ Masterdemon advanced ] Shouldn't Unstake For Non-Owner", async () => {
       await collection.setApprovalForAll(masterdemon.address, true);
       await masterdemon.stake(0, 0, { from: accounts[0] });
-      await masterdemon.stake(0, 1, { from: accounts[0] });
-      await masterdemon.stake(0, 2, { from: accounts[0] });
 
       await truffleAssert.fails(
         masterdemon.unstake(0, 0, { from: accounts[1] }),
@@ -124,29 +126,15 @@ contract(
       );
     });
 
-    it('[ Masterdemon ] Should Allow Batch Unstaking', async () => {
-      let amountStaked;
-      await masterdemon.unstake(0, 0, { from: accounts[0] });
-      await masterdemon.unstake(0, 1, { from: accounts[0] });
-      await masterdemon.unstake(0, 2, { from: accounts[0] });
-      await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res['3'];
-        console.log(amountStaked);
-      });
-
-      assert.equal(amountStaked.words[0], 0);
-    });
-
 
     it(' [ Masterdemon advanced ] Should Calculate amountOfStakers Correctly', async () => {
         let amountOfStakers;
 
-        await masterdemon.getCollection(0).then(res => {
-            amountOfStakers = res['8']
-        });
+        await masterdemon.unstake(0, 0, { from: accounts[0] });
+        //await masterdemon.getCollectionInfo(0).then(res => {
+        //  console.log(res)
+        //})
 
-        //assert.equal(amountOfStakers.words[0], 1);
-        console.log(amountOfStakers);
     });
   },
 );
