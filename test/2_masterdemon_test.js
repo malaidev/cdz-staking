@@ -73,7 +73,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
 
         // increases block.timestamp and therefore staking time by 1 day
         currentTimeStamp = (await web3.eth.getBlock('latest')).timestamp;
-        const moveToDate = currentTimeStamp + duration.days(1);
+        var moveToDate = currentTimeStamp + duration.days(1);
         await increaseTimeTo(moveToDate);
         info = await masterdemon.getUser(accounts[1], collection.address)
         daysStaked = info[1].toString()
@@ -103,7 +103,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
 
         // increases timestamp and therefore staking time by 4 days
         currentTimeStamp = (await web3.eth.getBlock('latest')).timestamp;
-        const moveToDate = currentTimeStamp + duration.days(4);
+        var moveToDate = currentTimeStamp + duration.days(4);
         await increaseTimeTo(moveToDate);
         info = await masterdemon.getUser(accounts[1], collection.address)
         daysStaked = info[1].toString()
@@ -115,17 +115,54 @@ contract("Masterdemon - Orcale testing", async accounts => {
         function timeout(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
-    
         await timeout(15000);
 
         // reward = 200 from previous harvest + 800 = 1000
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(1000));
 
     })
+
+
+    it('Staking another token resets daysStaked', async () => {
+
+        // increases timestamp and therefore staking time by 2 days
+        currentTimeStamp = (await web3.eth.getBlock('latest')).timestamp;
+        var moveToDate = currentTimeStamp + duration.days(2);
+        await increaseTimeTo(moveToDate);
+        info = await masterdemon.getUser(accounts[1], collection.address)
+        daysStaked = info[1].toString()
+        assert.equal(parseInt(daysStaked), 2) // days staked = 2
+
+        // stakes another token
+        await masterdemon.stake(0, 1, { from: accounts[1] });
+        expect(await collection.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(1));
+        expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(2));
+
+        // increases block.timestamp and therefore staking time by 1 day
+        currentTimeStamp = (await web3.eth.getBlock('latest')).timestamp;
+        var moveToDate = currentTimeStamp + duration.days(1);
+        await increaseTimeTo(moveToDate);
+        info = await masterdemon.getUser(accounts[1], collection.address)
+        daysStaked = info[1].toString()
+        assert.equal(parseInt(daysStaked), 1) // // days staked = 1
+
+        await masterdemon.harvest(0, {from: accounts[1]});
+
+        // need to wait for __callback() to be called by oracle
+        function timeout(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        await timeout(15000);
+
+        // reward = 1000 from previous harvests + (1 day * 2 tokens) @ 200 per token per day = 1400
+        expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(1400));
+
+    })
     
     
-    /*
-    it('Can batch harvest multiple tokens staked at the same time', async () => { // ASSUMES amountOfStakers is 1
+    
+    it('Can batch harvest multiple tokens', async () => { // ASSUMES amountOfStakers is 1 when in reality is actually 2 (accounts[1] and accounts[2])
+
 
         await collection.mint(3, accounts[2]);
         
@@ -138,7 +175,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
         // stakes all 3 tokens
         await masterdemon.batchStake(0, [3, 4, 5], { from: accounts[2] });
         expect(await collection.balanceOf(accounts[2])).to.be.a.bignumber.equal(new BN(0));
-        expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(4)); // 1 staked token from accounts[1] and 3 from accounts[2]
+        expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(5)); // 2 staked token from accounts[1] and 3 from accounts[2]
 
         expect(await llth.balanceOf(accounts[2])).to.be.a.bignumber.equal(new BN(0)); // LLTH balance should be zero
 
@@ -163,16 +200,11 @@ contract("Masterdemon - Orcale testing", async accounts => {
 
     })
 
-    
-    it('Can batch harvest multiple tokens staked at different times', async () => {
-        
 
-        
-
-    })
-    */
 
     // truffle test test/2_masterdemon_test.js --compile-none
 
+
+    // use listen for event rather than timeouts to save time when running test
     
 })
