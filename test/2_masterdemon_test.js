@@ -51,7 +51,6 @@ contract("Masterdemon - Orcale testing", async accounts => {
             1, // harvestingFee
             2, // multiplier
             0, // maturityPeriod
-            20, // maxDaysForStaking
             20, // stakingLimit
         );
 
@@ -89,14 +88,15 @@ contract("Masterdemon - Orcale testing", async accounts => {
         await timeout(15000); 
 
         // reward = (multiplier*daysStaked*rarity)/numberOfStakers = (2*1*100)/1 = 200
-        expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(200));
+        expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(200)); // LLTH balance should =reward
         
 
     })
 
-    /*
+    
     it('Can harvest again later', async () => {
 
+        expect(await collection.totalSupply()).to.be.a.bignumber.equal(new BN(3));
         expect(await collection.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(2));
         expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(1));
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(200));
@@ -116,18 +116,16 @@ contract("Masterdemon - Orcale testing", async accounts => {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
     
-        await timeout(10000);
+        await timeout(15000);
 
         // reward = 200 from previous harvest + 800 = 1000
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(1000));
 
     })
-    */
     
     
-    it('Can batch harvest multiple tokens staked at the same time', async () => {
-
-        
+    /*
+    it('Can batch harvest multiple tokens staked at the same time', async () => { // ASSUMES amountOfStakers is 1
 
         await collection.mint(3, accounts[2]);
         
@@ -165,7 +163,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
 
     })
 
-    /*
+    
     it('Can batch harvest multiple tokens staked at different times', async () => {
         
 
