@@ -133,7 +133,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         llth = _llth;
 
         // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain
-        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475);
+        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%
     }
 
     function stake(uint256 _cid, uint256 _id) external {
@@ -304,9 +304,12 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             daysStaked < collection.maxDaysForStaking,
             "Masterdemon._harvest: You have reached staking period limit"
         );
-        
+
+        bytes32 hash = bytes32(abi.encodePacked(_user,_cid));
+        require(loopsLeft[hash] == 0, "Ongoing harvest in progress");
+
         // stores uint of how many tokens to get rarity score for. Used in __callback()
-        loopsLeft[bytes32(abi.encodePacked(_user,_cid))] = user.stakedTokens[collection.collectionAddress].length; 
+        loopsLeft[hash] = user.stakedTokens[collection.collectionAddress].length; 
         
         for (
             uint256 i;
@@ -332,7 +335,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         
         // string memory args = string(abi.encodePacked('{"nftId":', _nftId,', "collectionAddress": ', _collectionAddress,'}'));  // JUST AN EXAMPLE
         //bytes32 queryId = provable_query("URL", apiURL, args);
-        bytes32 queryId = provable_query("URL", apiURL); // PROBABLY WANT TO SPECIFY A GAS PRICE
+        bytes32 queryId = provable_query("URL", apiURL); // PROBABLY WANT TO SPECIFY GAS
 
         
         pendingQueries[queryId] = true;
@@ -428,7 +431,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 0, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                amountOfStakers: 1, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 maxDaysForStaking: _maxDaysForStaking,
                 stakingLimit: _stakingLimit
             })
