@@ -542,7 +542,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
 
 
     // some get functions for testing and frontend
-    function viewAmountOfStakers(uint256 _cid) public {
+    function viewAmountOfStakers(uint256 _cid) public returns(uint) {
         CollectionInfo memory collection = collectionInfo[_cid];
         return collection.amountOfStakers;
     }

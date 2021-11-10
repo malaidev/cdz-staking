@@ -34,7 +34,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
 
     it('view amount', async () => {
 
-        console.log(await masterdemon.viewAmountOfStakers(0));// cid zero  // REVERTS
+        console.log((await masterdemon.viewAmountOfStakers(0)).toString()); // cid zero  // REVERTS
 
     })
 
