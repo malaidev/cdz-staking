@@ -432,7 +432,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 1, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                amountOfStakers: 0, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 stakingLimit: _stakingLimit
             })
         );
@@ -542,9 +542,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
 
 
     // some get functions for testing and frontend
-    function viewAmountOfStakers(uint256 _cid) public view returns (uint256) {
+    function viewAmountOfStakers(uint256 _cid) public {
         CollectionInfo memory collection = collectionInfo[_cid];
-        uint amountOfStakers = collection.amountOfStakers;
-        return amountOfStakers;
+        return collection.amountOfStakers;
     }
+
 }
