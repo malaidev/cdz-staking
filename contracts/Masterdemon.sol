@@ -42,7 +42,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     struct UserInfo {
         mapping(address => uint256[]) stakedTokens;
         uint256 amountStaked;
-        uint256 daysStaked;
+        uint256 stakedTimestamp;
         uint256 userBalance;
     }
 
@@ -61,9 +61,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    stake for "some time" to start accumulating rewards
      *    'amountOfStakers' => amount of people in given collection, used to decrease
      *    rewards as collection popularity rises
-     *    'maxDaysForStaking' => each collection will have staking limit that will be
-     *    represented in days. Users can stake freely before they reach this limit, then
-     *    either they cheat thru staking from other account or they move to another pool
      *    'stakingLimit' => another limitation, represented in amount of staked nfts in
      *    particular collection. Users can stake freely before they reach this limit and
      *    again, either they cheat thru staking from other account or they move to another
@@ -77,7 +74,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 multiplier;
         uint256 maturityPeriod;
         uint256 amountOfStakers;
-        uint256 maxDaysForStaking;
         uint256 stakingLimit;
     }
     
@@ -133,7 +129,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         llth = _llth;
 
         // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain
-        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475);
+        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%
     }
 
     function stake(uint256 _cid, uint256 _id) external {
@@ -170,7 +166,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     *    - We transfer their NFT to contract
     *    - If user never staked here before, we increment amountOfStakers
     *    - increment amountStaked by 1
-    *    - Start tracking of daysStaked with timestamp
+    *    - Start tracking of daysStaked with stakedTimestamp
     *    - populate stakedTokens mapping
     *    - populate tokenOwners double mapping with user's address
      */
@@ -199,7 +195,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         }
 
         user.amountStaked += 1;
-        user.daysStaked = block.timestamp;
+        user.stakedTimestamp = block.timestamp;
         user.stakedTokens[collection.collectionAddress].push(_id);
         tokenOwners[collection.collectionAddress][_id] = _user;
     }
@@ -216,7 +212,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    - Next several lines are for delicate array manipulation
      *    - delete id from stakedTokens mapping => array
      *    - delete user from tokenOwners double mapping
-     *    - reset user's daysStaked
+     *    - reset user's daysStaked to zero %%%%%%%%%%%%%%% might cause issues
      *    - if user has nothing left in given collection, deincrement amountOfstakers
      *    - if user has nothing staked at all (in any collection), delete their struct
      */
@@ -261,7 +257,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         // delete will leave 0x000...000
         delete tokenOwners[collection.collectionAddress][_id];
 
-        user.daysStaked = 0;
+        user.stakedTimestamp = 0;
         user.amountStaked -= 1;
 
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
@@ -281,7 +277,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    - Calculating daysStaked by converting unix epoch to days (dividing on 60 / 60 / 24)
      *    - Collection must be stakable
      *    - daysStaked must be over maturityPeriod of given collection
-     *    - daysStaked must be less than maxDaysForStaking limitation of given collection
      *    - To sum rewards from every single nft staked in given collection, we are looping
      *    thru user.stakedTokens mapping of address => array.
      *    - Check rarity of each token, calculate rewards and push them into user.userBalance
@@ -292,7 +287,15 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         UserInfo storage user = userInfo[_user];
         CollectionInfo memory collection = collectionInfo[_cid];
 
-        uint256 daysStaked = (block.timestamp - user.daysStaked) / 86400; // NEED TO PASS THIS IN TO __callback for reward
+        uint256 userTokensStakedInPool = user.stakedTokens[collection.collectionAddress].length;
+        require(userTokensStakedInPool > 0, "You have no tokens staked in this pool");
+
+        uint256 daysStaked;
+        if (user.stakedTimestamp == 0) { // i.e. token not currently being staked
+            daysStaked = 0;
+        } else {
+            daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
+        }
 
         require(
             collection.isStakable == true,
@@ -302,17 +305,16 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             daysStaked >= collection.maturityPeriod,
             "Masterdemon._harvest: You can't harvest yet"
         );
-        require(
-            daysStaked < collection.maxDaysForStaking,
-            "Masterdemon._harvest: You have reached staking period limit"
-        );
-        
-        // stores uint of how many tokens to get rarity score for. Used in __callback()
-        loopsLeft[bytes32(abi.encodePacked(_user,_cid))] = user.stakedTokens[collection.collectionAddress].length; 
+
+        bytes32 hash = bytes32(abi.encodePacked(_user,_cid));
+        require(loopsLeft[hash] == 0, "Ongoing harvest in progress"); // stops users haresting again whilst __callback calls are still ongoing
+
+        // stores uint of how many tokens to get rarity score of. Accessed in __callback() function
+        loopsLeft[hash] = userTokensStakedInPool;
         
         for (
             uint256 i;
-            i < user.stakedTokens[collection.collectionAddress].length;
+            i < userTokensStakedInPool;
             ++i
         ) {
             uint256 currentId = user.stakedTokens[collection.collectionAddress][
@@ -334,7 +336,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         
         // string memory args = string(abi.encodePacked('{"nftId":', _nftId,', "collectionAddress": ', _collectionAddress,'}'));  // JUST AN EXAMPLE
         //bytes32 queryId = provable_query("URL", apiURL, args);
-        bytes32 queryId = provable_query("URL", apiURL); // PROBABLY WANT TO SPECIFY A GAS PRICE
+        bytes32 queryId = provable_query("URL", apiURL); // PROBABLY WANT TO SPECIFY GAS
 
         
         pendingQueries[queryId] = true;
@@ -354,7 +356,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
 
         emit Callback(_result);
         
-        uint rarity = parseInt(_result); // API is returning numbers as "57\n" which is throwing off the value score
+        uint rarity = parseInt(_result); 
 
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         rarity = 100; // for TESTING ONLY, ensures rarity score is always 100 %%%%%%%%%%%%%%%%%%
@@ -364,7 +366,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         
         address userAddress = idToHarvesterInfo[_myid].userAddress;
         UserInfo storage user = userInfo[userAddress];
-        uint256 daysStaked = (block.timestamp - user.daysStaked) / 86400; 
+        uint256 daysStaked = (block.timestamp - user.stakedTimestamp) / 86400; 
         
         uint cid = idToHarvesterInfo[_myid].cid;
         CollectionInfo memory collection = collectionInfo[cid];
@@ -385,6 +387,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         if (numOfLoopsLeft == 0) { // if all NFT rewards of a user's collection have been calculated then transfer tokens
             llth.mint(userAddress, user.userBalance);
             user.userBalance = 0;
+            user.stakedTimestamp = block.timestamp; // resets stakedTimestamp
         }
     }
 
@@ -419,7 +422,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _maxDaysForStaking,
         uint256 _stakingLimit
     ) public onlyOwner {
         collectionInfo.push(
@@ -430,8 +432,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 0, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                maxDaysForStaking: _maxDaysForStaking,
+                amountOfStakers: 1, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 stakingLimit: _stakingLimit
             })
         );
@@ -450,7 +451,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _maxDaysForStaking,
         uint256 _stakingLimit
     ) public onlyOwner {
         CollectionInfo memory collection = collectionInfo[_cid];
@@ -460,7 +460,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         collection.harvestingFee = _harvestingFee;
         collection.multiplier = _multiplier;
         collection.maturityPeriod = _maturityPeriod;
-        collection.maxDaysForStaking = _maxDaysForStaking;
         collection.stakingLimit = _stakingLimit;
     }
 
@@ -494,7 +493,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     function getUser(address _user, address _collection) public view returns (uint256, uint256, uint256, uint256[] memory){
         UserInfo storage user = userInfo[_user];
         uint256 amountStaked = user.amountStaked;
-        uint256 daysStaked = (block.timestamp - user.daysStaked) / 86400;
+        uint256 daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
         uint256 userBalance = user.userBalance;
         uint256[] memory stakedTokens = user.stakedTokens[_collection];
 

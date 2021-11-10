@@ -27,7 +27,6 @@ contract(
         1, // harvestingFee
         2, // multiplier
         0, // maturityPeriod
-        20, // maxDaysForStaking
         20, // stakingLimit
       );
     });
