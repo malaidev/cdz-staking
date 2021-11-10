@@ -61,9 +61,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    stake for "some time" to start accumulating rewards
      *    'amountOfStakers' => amount of people in given collection, used to decrease
      *    rewards as collection popularity rises
-     *    'stakingLimit' => another limitation, represented in amount of staked nfts in
+     *    'stakingLimit' => another limitation, represented in amount of staked nfts per user in
      *    particular collection. Users can stake freely before they reach this limit and
-     *    again, either they cheat thru staking from other account or they move to another
+     *    again, either they cheat through staking from other account or they move to another
      *    pool.
      */
     struct CollectionInfo {
@@ -90,7 +90,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     
     
     /**
-     *    @notice map hash of user address and cid to the number of tokens owned by a user for a specfic collection
+     *    @notice map hash of user address and cid, to the number of staked tokens owned by a user for a specfic collection to harvest. 
      */
     mapping(bytes32 => uint) loopsLeft;
     
@@ -116,7 +116,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     mapping(address => mapping(uint256 => address)) public tokenOwners;
 
     /**
-     *   @notice array of each collection, we search thru this by _cid (collection address)
+     *   @notice array of each collection, we search through this by _cid (collection identifier)
      */
     CollectionInfo[] public collectionInfo;
 
@@ -128,8 +128,8 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     constructor(MockLLTH _llth) public {
         llth = _llth;
 
-        // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain
-        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%
+        // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain %%%%%%%%%
+        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%%%%%
     }
 
     function stake(uint256 _cid, uint256 _id) external {
@@ -190,7 +190,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             _id
         );
 
-        if (user.stakedTokens[collection.collectionAddress].length == 0) {
+        if (user.stakedTokens[collection.collectionAddress].length == 0) { // potential issue here where if statement isn't triggering %%%%%%%%%%%%%%%%%%%%%%%%%%
             collection.amountOfStakers += 1;
         }
 
@@ -258,7 +258,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         user.stakedTimestamp = 0;
         user.amountStaked -= 1;
 
-        if (user.stakedTokens[collection.collectionAddress].length == 0) {
+        if (user.stakedTokens[collection.collectionAddress].length == 0) { // potential issue - if statement might not be triggering
             collection.amountOfStakers -= 1;
         }
 
@@ -296,16 +296,17 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         }
 
         require(
-            collection.isStakable == true,
-            "Masterdemon._harvest: Staking in given pool has finished"
-        );
-        require(
             daysStaked >= collection.maturityPeriod,
             "Masterdemon._harvest: You can't harvest yet"
         );
 
+        require(
+            collection.isStakable == true,
+            "Masterdemon._harvest: Staking in given pool has finished"
+        );
+
         bytes32 hash = bytes32(abi.encodePacked(_user,_cid));
-        require(loopsLeft[hash] == 0, "Ongoing harvest in progress"); // stops users haresting again whilst __callback calls are still ongoing
+        require(loopsLeft[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst __callback() calls are still ongoing
 
         // stores uint of how many tokens to get rarity score of. Accessed in __callback() function
         loopsLeft[hash] = userTokensStakedInPool;
@@ -328,7 +329,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     }
 
 
-    function _getRarity(address _user, uint _cid, address _collectionAddress, uint256 _nftId) public payable { // % VISIBILTY MIGHT NEED CHANGING
+    function _getRarity(address _user, uint _cid, address _collectionAddress, uint256 _nftId) public payable { // % VISIBILTY MIGHT NEED CHANGING %%%%%%%%%%%%%%%%%%%%%%
         require(provable_getPrice("URL") < address(this).balance, "Not enough ether held in smart contract to cover oracle fee, contact admin");
             
         
@@ -422,6 +423,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _maturityPeriod,
         uint256 _stakingLimit
     ) public onlyOwner {
+        
         collectionInfo.push(
             CollectionInfo({
                 isStakable: _isStakable,
@@ -540,9 +542,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
 
 
     // some get functions for testing and frontend
-
-    function getCollectionInfo(uint256 _cid) public returns (uint256) {
+    function viewAmountOfStakers(uint256 _cid) public view returns (uint256) {
         CollectionInfo memory collection = collectionInfo[_cid];
-        return collection.amountOfStakers;
+        uint amountOfStakers = collection.amountOfStakers;
+        return amountOfStakers;
     }
 }

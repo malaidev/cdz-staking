@@ -43,6 +43,8 @@ contract("Masterdemon - Orcale testing", async accounts => {
     
     it('Can harvest a single token', async () => {
 
+        await masterdemon.send(1e17); // sends smart contract ether to cover oracle fee
+
         // _cid = 0
         await masterdemon.setCollection(
             true, // isStakable
@@ -67,7 +69,9 @@ contract("Masterdemon - Orcale testing", async accounts => {
         expect(await collection.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(2));
         expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(1));
 
-        await masterdemon.send(1e17); // sends smart contract ether to cover oracle fee
+
+        console.log((await masterdemon.viewAmountOfStakers(0)).toString()); // amountOfStakers should technically be 2 as collectoin is set with a value of 1
+
 
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(0)); // LLTH balance should be zero
 
@@ -93,7 +97,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
 
     })
 
-    
+    /*
     it('Can harvest again later', async () => {
 
         expect(await collection.totalSupply()).to.be.a.bignumber.equal(new BN(3));
@@ -177,6 +181,10 @@ contract("Masterdemon - Orcale testing", async accounts => {
         expect(await collection.balanceOf(accounts[2])).to.be.a.bignumber.equal(new BN(0));
         expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(5)); // 2 staked token from accounts[1] and 3 from accounts[2]
 
+
+        console.log(await masterdemon.getCollectionInfo(0)); // amountOfStakers should be 2 (accounts[1] and accounts[2])
+
+
         expect(await llth.balanceOf(accounts[2])).to.be.a.bignumber.equal(new BN(0)); // LLTH balance should be zero
 
         // increases block.timestamp and therefore staking time by 1 day
@@ -199,7 +207,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
         expect(await llth.balanceOf(accounts[2])).to.be.a.bignumber.equal(new BN(1200));
 
     })
-
+    */
 
 
     // truffle test test/2_masterdemon_test.js --compile-none
