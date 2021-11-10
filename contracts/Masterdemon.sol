@@ -233,6 +233,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             "Masterdemon._unstake: Sender doesn't owns this token"
         );
 
+        
         IERC721(collection.collectionAddress).safeTransferFrom(
             address(this),
             _user,
@@ -240,8 +241,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         );
 
         // also deletes the gaps
+        
         for (
-            uint256 i;
+            uint256 i; 
             i < user.stakedTokens[collection.collectionAddress].length;
             ++i
         ) {
