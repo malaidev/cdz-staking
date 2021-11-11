@@ -128,6 +128,8 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     constructor(MockLLTH _llth) public {
         llth = _llth;
 
+        provable_setCustomGasPrice(200000000000); // 200 gwei gas price
+
         // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain %%%%%%%%%
         OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%%%%%
     }
@@ -306,7 +308,11 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         );
 
         bytes32 hash = bytes32(abi.encodePacked(_user,_cid));
+
+
+        // adjust to handle the instance where queries get stuck due to too low of a gas price
         require(loopsLeft[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst __callback() calls are still ongoing
+
 
         // stores uint of how many tokens to get rarity score of. Accessed in __callback() function
         loopsLeft[hash] = userTokensStakedInPool;
@@ -335,7 +341,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         
         // string memory args = string(abi.encodePacked('{"nftId":', _nftId,', "collectionAddress": ', _collectionAddress,'}'));  // JUST AN EXAMPLE
         //bytes32 queryId = provable_query("URL", apiURL, args);
-        bytes32 queryId = provable_query("URL", apiURL); // PROBABLY WANT TO SPECIFY GAS
+        bytes32 queryId = provable_query("URL", apiURL); // SPECIFY GAS LIMIT AS FINAL ARG. (Default is 200k, any unused gas goes to Provable) %%%%%%%%%
 
         
         pendingQueries[queryId] = true;
@@ -488,6 +494,14 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 collection.isStakable = false;
             }
         }
+    }
+
+    /**
+     *    @notice set the gas price that the Provable oracle uses to call the __callback() function
+     *    @param _newGasPrice => gas price in Wei
+     */
+    function setOracleGasPrice(uint _newGasPrice) public onlyOwner {
+        provable_setCustomGasPrice(_newGasPrice);
     }
 
     function getUser(address _user, address _collection) public view returns (uint256, uint256, uint256, uint256[] memory){
