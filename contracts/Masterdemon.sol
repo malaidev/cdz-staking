@@ -422,7 +422,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 0, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                amountOfStakers: 1, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 stakingLimit: _stakingLimit
             })
         );

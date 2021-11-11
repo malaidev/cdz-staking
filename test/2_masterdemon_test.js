@@ -35,7 +35,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
         llth = await LLTH.deployed();
         collection = await Collection.deployed();
         provable = await provableAPI.deployed();
-        masterdemon = await Masterdemon.deployed(llth.address)
+        masterdemon = await Masterdemon.deployed()
 
     });
 

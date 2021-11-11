@@ -1,6 +1,7 @@
 const LLTH = artifacts.require('MockLLTH');
 const Collection = artifacts.require('MockCollection');
 const Masterdemon = artifacts.require('Masterdemon');
+const provableAPI = artifacts.require("usingProvable");
 
 const truffleAssert = require('truffle-assertions');
 
@@ -14,7 +15,8 @@ contract(
     beforeEach(async () => {
       llth = await LLTH.deployed();
       collection = await Collection.deployed();
-      masterdemon = await Masterdemon.deployed();
+      provable = await provableAPI.deployed();
+      masterdemon = await Masterdemon.deployed(llth.address);
 
       // _id = 0
       collection.mint(3, accounts[0]);
