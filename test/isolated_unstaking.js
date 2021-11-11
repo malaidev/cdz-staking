@@ -17,7 +17,7 @@ contract(
       masterdemon = await Masterdemon.deployed();
 
       // _id = 0
-      collection.mint(2, accounts[0]);
+      collection.mint(3, accounts[0]);
 
       // _cid = 0
       masterdemon.setCollection(
@@ -27,16 +27,16 @@ contract(
         1, // harvestingFee
         2, // multiplier
         0, // maturityPeriod
-        20, // maxDaysForStaking
         20, // stakingLimit
       );
     });
 
     it('unstaking check', async () => {
       await collection.setApprovalForAll(masterdemon.address, true);
-      await masterdemon.batchStake(0, [0, 1], { from: accounts[0] });
+      await masterdemon.batchStake(0, [0, 1, 2], { from: accounts[0] });
       //await masterdemon.batchUnstake(0, [0, 1], { from: accounts[0] });
       await masterdemon.batchUnstake(0, [0, 1], { from: accounts[0] });
+      await masterdemon.unstake(0, 2, { from: accounts[0] });
     }); 
   },
 );
