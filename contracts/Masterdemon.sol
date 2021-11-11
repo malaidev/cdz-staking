@@ -9,9 +9,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./mocks/MockLLTH.sol";
 import "./provableAPI.sol";
+import "./libs/Array.sol";
 
 contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     using Address for address;
+    using Array for uint256[];
     
     
     string public apiURL = "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API. Returns number between 50 & 350
@@ -236,33 +238,13 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             _id
         );
 
-        // also deletes the gaps
+        user.stakedTokens[collection.collectionAddress].removeElement(_id);
         
-        for (
-            uint256 i; 
-            i < user.stakedTokens[collection.collectionAddress].length;
-            ++i
-        ) {
-            if (user.stakedTokens[collection.collectionAddress][i] == _id) {
-                delete user.stakedTokens[collection.collectionAddress][i];
-                user.stakedTokens[collection.collectionAddress][i] = user
-                    .stakedTokens[collection.collectionAddress][
-                        user.stakedTokens[collection.collectionAddress].length -
-                            1
-                    ];
-                user.stakedTokens[collection.collectionAddress].pop();
-            }
-        }
-
         // delete will leave 0x000...000
         delete tokenOwners[collection.collectionAddress][_id];
 
         user.stakedTimestamp = 0;
         user.amountStaked -= 1;
-
-        if (user.stakedTokens[collection.collectionAddress].length == 0) { // potential issue - if statement might not be triggering
-            collection.amountOfStakers -= 1;
-        }
 
         if (user.amountStaked == 0) {
             delete userInfo[_user];

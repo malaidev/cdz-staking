@@ -35,8 +35,8 @@ contract(
       await collection.setApprovalForAll(masterdemon.address, true);
       await masterdemon.batchStake(0, [0, 1, 2], { from: accounts[0] });
       //await masterdemon.batchUnstake(0, [0, 1], { from: accounts[0] });
-      await masterdemon.batchUnstake(0, [0, 1], { from: accounts[0] });
-      await masterdemon.unstake(0, 2, { from: accounts[0] });
+      await masterdemon.batchUnstake(0, [0, 1, 2], { from: accounts[0] });
+      //await masterdemon.unstake(0, 2, { from: accounts[0] });
     }); 
   },
 );
