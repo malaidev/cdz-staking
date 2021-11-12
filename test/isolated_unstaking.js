@@ -5,6 +5,11 @@ const provableAPI = artifacts.require("usingProvable");
 
 const truffleAssert = require('truffle-assertions');
 
+var chai = require("./setupchai.js");
+const BN = web3.utils.BN;
+const expect = chai.expect;
+
+
 contract(
   'Masterdemon => Staking/Unstaking advanced, error testing',
   async (accounts) => {
@@ -16,7 +21,7 @@ contract(
       llth = await LLTH.deployed();
       collection = await Collection.deployed();
       provable = await provableAPI.deployed();
-      masterdemon = await Masterdemon.deployed(llth.address);
+      masterdemon = await Masterdemon.deployed();
 
       // _id = 0
       collection.mint(3, accounts[0]);
@@ -36,8 +41,10 @@ contract(
     it('unstaking check', async () => {
       await collection.setApprovalForAll(masterdemon.address, true);
       await masterdemon.batchStake(0, [0, 1, 2], { from: accounts[0] });
+      expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(3));
       //await masterdemon.batchUnstake(0, [0, 1], { from: accounts[0] });
       await masterdemon.batchUnstake(0, [0, 1, 2], { from: accounts[0] });
+      expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(0));
       //await masterdemon.unstake(0, 2, { from: accounts[0] });
     }); 
   },

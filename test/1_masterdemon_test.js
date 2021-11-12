@@ -26,6 +26,7 @@ contract(
         1, // stakingFee
         1, // harvestingFee
         2, // multiplier
+        0, // maturityPeriod
         20, // stakingLimit
       );
     });
@@ -55,7 +56,7 @@ contract(
         amountStaked = res['0'];
       });
 
-      assert.equal(amountStaked.words[0], 4);
+      assert.equal(amountStaked.words[0], 3);
     });
 
     it('[ Masterdemon ] Should Allow Unstaking', async () => {

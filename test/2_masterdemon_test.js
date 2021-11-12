@@ -70,7 +70,7 @@ contract("Masterdemon - Orcale testing", async accounts => {
         expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(1));
 
 
-        console.log((await masterdemon.viewAmountOfStakers(0)).toString()); // amountOfStakers should technically be 2 as collectoin is set with a value of 1
+        console.log((await masterdemon.viewAmountOfStakers(0)).toString()); 
 
 
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(0)); // LLTH balance should be zero

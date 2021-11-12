@@ -17,7 +17,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     
     
     string public apiURL = "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API. Returns number between 50 & 350
-    
+    uint256 public oracleCallbackGasLimit;
     
     /**
      *    @notice keep track of info needed in __callback() function
@@ -83,7 +83,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     /**
      *    @notice emitted when oracle query sent
      */
-    event LogNewProvableQuery(string description, address collectionAddress, uint nftId);
+    event LogNewProvableQuery(string description);
 
     /**
      *    @notice emitted when oracle calls __callback() function
@@ -130,7 +130,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     constructor(MockLLTH _llth) public {
         llth = _llth;
 
-        provable_setCustomGasPrice(200000000000); // 200 gwei gas price
+        provable_setCustomGasPrice(200000000000); // 200 gwei gas price  // MUST RUN BRIDGE IF NOT COMMENTED OUT
 
         // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain %%%%%%%%%
         OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%%%%%
@@ -326,10 +326,11 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         // string memory args = string(abi.encodePacked('{"nftId":', _nftId,', "collectionAddress": ', _collectionAddress,'}'));  // JUST AN EXAMPLE
         //bytes32 queryId = provable_query("URL", apiURL, args);
         bytes32 queryId = provable_query("URL", apiURL); // SPECIFY GAS LIMIT AS FINAL ARG. (Default is 200k, any unused gas goes to Provable) %%%%%%%%%
+        // 97,403 gas used for _callback of older version (see https://rinkeby.etherscan.io/tx/0x58396b3e08cc251a1c1d5d082821f2d7af63f17bdda54509b0ebb80189f90670)
 
         
         pendingQueries[queryId] = true;
-        emit LogNewProvableQuery("Provable query was sent, standing by for the answer..", _collectionAddress, _nftId);
+        emit LogNewProvableQuery("Provable query was sent, standing by for the answer..");
         
         idToHarvesterInfo[queryId].userAddress = _user; // stored so __callback function can retrieve this info later
         idToHarvesterInfo[queryId].cid = _cid; // stored so __callback function can retrieve this info later
@@ -422,7 +423,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 1, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                amountOfStakers: 0, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 stakingLimit: _stakingLimit
             })
         );
@@ -486,6 +487,14 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      */
     function setOracleGasPrice(uint _newGasPrice) public onlyOwner {
         provable_setCustomGasPrice(_newGasPrice);
+    }
+
+    /**
+     *    @notice set the gas limit of the Provable oracle's __callback() call. Any unused gas goes to Provable.
+     *    @param _newGasLimit => gas limit in Wei
+     */
+    function setOracleCallbackGasLimit(uint _newGasLimit) public onlyOwner {
+        oracleCallbackGasLimit = _newGasLimit;
     }
 
     function getUser(address _user, address _collection) public view returns (uint256, uint256, uint256, uint256[] memory){
