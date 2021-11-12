@@ -14,11 +14,11 @@ import "./libs/Array.sol";
 contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     using Address for address;
     using Array for uint256[];
-    
-    
-    string public apiURL = "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API. Returns number between 50 & 350
+
+    string public apiURL =
+        "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API. Returns number between 50 & 350
     uint256 public oracleCallbackGasLimit;
-    
+
     /**
      *    @notice keep track of info needed in __callback() function
      *
@@ -29,9 +29,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     struct harvesterInfo {
         address userAddress;
         address collectionAddress;
-        uint cid;
+        uint256 cid;
     }
-    
+
     /**
      *    @notice keep track of each user and their info
      *
@@ -40,9 +40,11 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    'amountStaked' => keep track of total amount of nfts staked in any pool
      *    'userBalance' => somewhat unnecessary addition, to keep track of user rewards.
      *    this becomes always 0 after _harvest, so removing it might be a good thing.
+     *     'timeStaked' => staking period in given collection
      */
     struct UserInfo {
         mapping(address => uint256[]) stakedTokens;
+        mapping(address => uint256) timeStaked;
         uint256 amountStaked;
         uint256 stakedTimestamp;
         uint256 userBalance;
@@ -67,6 +69,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    particular collection. Users can stake freely before they reach this limit and
      *    again, either they cheat through staking from other account or they move to another
      *    pool.
+     *    'requiredTimeToGetRewards' => represented in days, user must take this many days to get rewards
      */
     struct CollectionInfo {
         bool isStakable;
@@ -77,9 +80,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 maturityPeriod;
         uint256 amountOfStakers;
         uint256 stakingLimit;
+        uint256 requiredTimeToGetRewards;
     }
-    
-    
+
     /**
      *    @notice emitted when oracle query sent
      */
@@ -89,18 +92,17 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    @notice emitted when oracle calls __callback() function
      */
     event Callback(string result);
-    
-    
+
     /**
-     *    @notice map hash of user address and cid, to the number of staked tokens owned by a user for a specfic collection to harvest. 
+     *    @notice map hash of user address and cid, to the number of staked tokens owned by a user for a specfic collection to harvest.
      */
-    mapping(bytes32 => uint) loopsLeft;
-    
+    mapping(bytes32 => uint256) loopsLeft;
+
     /**
      *    @notice map oracle query id to struct harvesterInfo for access in __callback()
      */
     mapping(bytes32 => harvesterInfo) idToHarvesterInfo;
-    
+
     /**
      *    @notice map status of pending oracle queries
      */
@@ -112,10 +114,15 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     mapping(address => UserInfo) public userInfo;
 
     /**
-     *    @notice colleciton address => (staked nft => user address)
-     *    @dev would be nice if replace uint256 to uint256[]
+     *    @notice collection address => (staked nft => user address)
      */
     mapping(address => mapping(uint256 => address)) public tokenOwners;
+
+    /**
+     *     @notice collection address => nft rarities where index = nft id
+     *     @dev extremely heavy array warning, traversing is suicide!
+     */
+    mapping(address => uint256[]) public tokenRarities;
 
     /**
      *   @notice array of each collection, we search through this by _cid (collection identifier)
@@ -136,12 +143,14 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%%%%%
     }
 
+    /*-------------------------------Main external functions-------------------------------*/
+
     function stake(uint256 _cid, uint256 _id) external {
         _stake(msg.sender, _cid, _id);
     }
 
     function batchStake(uint256 _cid, uint256[] memory _ids) external {
-        for (uint256 i=0; i < _ids.length; ++i) {
+        for (uint256 i = 0; i < _ids.length; ++i) {
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -151,7 +160,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     }
 
     function batchUnstake(uint256 _cid, uint256[] memory _ids) external {
-        for (uint256 i=0; i < _ids.length; ++i) {
+        for (uint256 i = 0; i < _ids.length; ++i) {
             _unstake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -159,6 +168,8 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     function harvest(uint256 _cid) external {
         _harvest(msg.sender, _cid);
     }
+
+    /*-------------------------------Main internal functions-------------------------------*/
 
     /**
     *    @notice internal stake function, called in external stake and batchStake
@@ -194,12 +205,12 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             _id
         );
 
-        if (user.stakedTokens[collection.collectionAddress].length == 0) { 
+        if (user.stakedTokens[collection.collectionAddress].length == 0) {
             collection.amountOfStakers += 1;
         }
 
         user.amountStaked += 1;
-        user.stakedTimestamp = block.timestamp;
+        user.timeStaked[collection.collectionAddress] = block.timestamp;
         user.stakedTokens[collection.collectionAddress].push(_id);
         tokenOwners[collection.collectionAddress][_id] = _user;
     }
@@ -233,7 +244,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             "Masterdemon._unstake: Sender doesn't owns this token"
         );
 
-        
         IERC721(collection.collectionAddress).safeTransferFrom(
             address(this),
             _user,
@@ -245,16 +255,16 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
             collection.amountOfStakers -= 1;
         }
-        
+
         // delete will leave 0x000...000
         delete tokenOwners[collection.collectionAddress][_id];
 
-        user.stakedTimestamp = 0;
+        user.timeStaked[collection.collectionAddress] = 0;
         user.amountStaked -= 1;
 
-        //if (user.amountStaked == 0) {
+        // if (user.amountStaked == 0) {
         //    delete userInfo[_user];
-        //}
+        // }
     }
 
     /**
@@ -275,11 +285,17 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         UserInfo storage user = userInfo[_user];
         CollectionInfo memory collection = collectionInfo[_cid];
 
-        uint256 userTokensStakedInPool = user.stakedTokens[collection.collectionAddress].length;
-        require(userTokensStakedInPool > 0, "You have no tokens staked in this pool");
+        uint256 userTokensStakedInPool = user
+            .stakedTokens[collection.collectionAddress]
+            .length;
+        require(
+            userTokensStakedInPool > 0,
+            "You have no tokens staked in this pool"
+        );
 
         uint256 daysStaked;
-        if (user.stakedTimestamp == 0) { // i.e. token not currently being staked
+        if (user.stakedTimestamp == 0) {
+            // i.e. token not currently being staked
             daysStaked = 0;
         } else {
             daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
@@ -295,98 +311,97 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             "Masterdemon._harvest: Staking in given pool has finished"
         );
 
-        bytes32 hash = bytes32(abi.encodePacked(_user,_cid));
-
+        bytes32 hash = bytes32(abi.encodePacked(_user, _cid));
 
         // adjust to handle the instance where queries get stuck due to too low of a gas price
         require(loopsLeft[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst __callback() calls are still ongoing
 
-
         // stores uint of how many tokens to get rarity score of. Accessed in __callback() function
         loopsLeft[hash] = userTokensStakedInPool;
-        
-        for (
-            uint256 i;
-            i < userTokensStakedInPool;
-            ++i
-        ) {
+
+        for (uint256 i; i < userTokensStakedInPool; ++i) {
             uint256 currentId = user.stakedTokens[collection.collectionAddress][
                 i
             ];
-            _getRarity(
-                _user,
-                _cid,
-                collection.collectionAddress,
-                currentId
-            );
+            _getRarity(_user, _cid, collection.collectionAddress, currentId);
         }
     }
 
+    /*-------------------------------Rarity related functions-------------------------------*/
 
-    function _getRarity(address _user, uint _cid, address _collectionAddress, uint256 _nftId) public payable { // % VISIBILTY MIGHT NEED CHANGING %%%%%%%%%%%%%%%%%%%%%%
-        require(provable_getPrice("URL") < address(this).balance, "Not enough ether held in smart contract to cover oracle fee, contact admin");
-            
-        
+    function _getRarity(
+        address _user,
+        uint256 _cid,
+        address _collectionAddress,
+        uint256 _nftId
+    ) public payable {
+        // % VISIBILTY MIGHT NEED CHANGING %%%%%%%%%%%%%%%%%%%%%%
+        require(
+            provable_getPrice("URL") < address(this).balance,
+            "Not enough ether held in smart contract to cover oracle fee, contact admin"
+        );
+
         // string memory args = string(abi.encodePacked('{"nftId":', _nftId,', "collectionAddress": ', _collectionAddress,'}'));  // JUST AN EXAMPLE
         //bytes32 queryId = provable_query("URL", apiURL, args);
         bytes32 queryId = provable_query("URL", apiURL); // SPECIFY GAS LIMIT AS FINAL ARG. (Default is 200k, any unused gas goes to Provable) %%%%%%%%%
         // 97,403 gas used for _callback of older version (see https://rinkeby.etherscan.io/tx/0x58396b3e08cc251a1c1d5d082821f2d7af63f17bdda54509b0ebb80189f90670)
 
-        
         pendingQueries[queryId] = true;
-        emit LogNewProvableQuery("Provable query was sent, standing by for the answer..");
-        
+        emit LogNewProvableQuery(
+            "Provable query was sent, standing by for the answer.."
+        );
+
         idToHarvesterInfo[queryId].userAddress = _user; // stored so __callback function can retrieve this info later
         idToHarvesterInfo[queryId].cid = _cid; // stored so __callback function can retrieve this info later
     }
-    
-    
+
     // called by Provable oracle
-    function __callback(bytes32 _myid, string memory _result) override public {
+    function __callback(bytes32 _myid, string memory _result) public override {
         require(msg.sender == provable_cbAddress()); // must be called by Provable oracle
-        require (pendingQueries[_myid] == true);
-        
+        require(pendingQueries[_myid] == true);
+
         pendingQueries[_myid] == false;
 
         emit Callback(_result);
-        
-        uint rarity = parseInt(_result); 
+
+        uint256 rarity = parseInt(_result);
 
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         rarity = 100; // for TESTING ONLY, ensures rarity score is always 100 %%%%%%%%%%%%%%%%%%
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-        require(rarity >= 50 && rarity <= 350, "Masterdemon._harvest: Wrong range");
-        
+
+        require(
+            rarity >= 50 && rarity <= 350,
+            "Masterdemon._harvest: Wrong range"
+        );
+
         address userAddress = idToHarvesterInfo[_myid].userAddress;
         UserInfo storage user = userInfo[userAddress];
-        uint256 daysStaked = (block.timestamp - user.stakedTimestamp) / 86400; 
-        
-        uint cid = idToHarvesterInfo[_myid].cid;
+        uint256 daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
+
+        uint256 cid = idToHarvesterInfo[_myid].cid;
         CollectionInfo memory collection = collectionInfo[cid];
-        
+
         uint256 reward = _getReward(
             rarity,
             daysStaked,
             collection.multiplier,
             collection.amountOfStakers
         );
-        
+
         user.userBalance += reward;
-        
+
         bytes32 hash = bytes32(abi.encodePacked(userAddress, cid));
-        loopsLeft[hash] --;
-        uint numOfLoopsLeft = loopsLeft[hash];
-            
-        if (numOfLoopsLeft == 0) { // if all NFT rewards of a user's collection have been calculated then transfer tokens
+        loopsLeft[hash]--;
+        uint256 numOfLoopsLeft = loopsLeft[hash];
+
+        if (numOfLoopsLeft == 0) {
+            // if all NFT rewards of a user's collection have been calculated then transfer tokens
             llth.mint(userAddress, user.userBalance);
             user.userBalance = 0;
             user.stakedTimestamp = block.timestamp; // resets stakedTimestamp
         }
     }
-
-
-
 
     /**
      *    @notice calculate rewards of each NFT based on our formula
@@ -405,6 +420,8 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         return finalReward;
     }
 
+    /*-------------------------------Admin functions-------------------------------*/
+
     /**
      *    @notice initialize new collection
      *    {see struct for param definition}
@@ -416,9 +433,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _stakingLimit
+        uint256 _stakingLimit,
+        uint256 _requiredTimeToGetRewards
     ) public onlyOwner {
-        
         collectionInfo.push(
             CollectionInfo({
                 isStakable: _isStakable,
@@ -427,12 +444,12 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
-                amountOfStakers: 0, // notice, its for testing purposes. this should be 0 in production %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                stakingLimit: _stakingLimit
+                amountOfStakers: 0,
+                stakingLimit: _stakingLimit,
+                requiredTimeToGetRewards: _requiredTimeToGetRewards
             })
         );
     }
-
 
     /**
      *    @notice update collection
@@ -446,7 +463,8 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _stakingLimit
+        uint256 _stakingLimit,
+        uint256 _requiredTimeToGetRewards
     ) public onlyOwner {
         CollectionInfo memory collection = collectionInfo[_cid];
         collection.isStakable = _isStakable;
@@ -456,6 +474,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         collection.multiplier = _multiplier;
         collection.maturityPeriod = _maturityPeriod;
         collection.stakingLimit = _stakingLimit;
+        collection.requiredTimeToGetRewards = _requiredTimeToGetRewards;
     }
 
     /**
@@ -489,7 +508,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    @notice set the gas price that the Provable oracle uses to call the __callback() function
      *    @param _newGasPrice => gas price in Wei
      */
-    function setOracleGasPrice(uint _newGasPrice) public onlyOwner {
+    function setOracleGasPrice(uint256 _newGasPrice) public onlyOwner {
         provable_setCustomGasPrice(_newGasPrice);
     }
 
@@ -497,21 +516,59 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    @notice set the gas limit for the Provable oracle __callback() call. Unspent gas is retained by Provable.
      *    @param _newGasLimit => gas limit in Wei
      */
-    function setOracleCallbackGasLimit(uint _newGasLimit) public onlyOwner {
+    function setOracleCallbackGasLimit(uint256 _newGasLimit) public onlyOwner {
         oracleCallbackGasLimit = _newGasLimit;
     }
 
+    /*-------------------------------Get functions for frontend-------------------------------*/
 
-    function getUser(address _user, address _collection) public view returns (uint256){
+    function getUserInfo(address _user, address _collection)
+        public
+        view
+        returns (
+            uint256[] memory,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
         UserInfo storage user = userInfo[_user];
-        return user.amountStaked;
+        return (
+            user.stakedTokens[_collection],
+            user.timeStaked[_collection],
+            user.amountStaked,
+            user.userBalance
+        );
     }
 
-    function getCollectionInfo(uint256 _cid) public view returns (uint256) {
+    function getCollectionInfo(uint256 _cid)
+        public
+        view
+        returns (
+            bool,
+            address,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
         CollectionInfo memory collection = collectionInfo[_cid];
-        return collection.amountOfStakers;
+        return (
+            collection.isStakable,
+            collection.collectionAddress,
+            collection.harvestingFee,
+            collection.multiplier,
+            collection.maturityPeriod,
+            collection.amountOfStakers,
+            collection.stakingLimit,
+            collection.requiredTimeToGetRewards
+        );
     }
-    
+
+    /*-------------------------------Misc-------------------------------*/
 
     function onERC721Received(
         address,
@@ -524,39 +581,24 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
     }
-    
-    
-    
+
     /**
      *    @notice Will receive any eth sent to the contract (funding oracle calls for example)
      */
     receive() external payable {}
-    
-    
-    
-    
+
     // TESTING ONLY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function withdraw() public {
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    function mintLilith(uint _amount) public {
+    function mintLilith(uint256 _amount) public {
         llth.mint(msg.sender, _amount);
     }
-    
-    uint public price;
+
+    uint256 public price;
+
     function viewProvablePrice() public {
         price = provable_getPrice("URL");
     }
-    // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-
-    // some get functions for testing and frontend
-    function viewAmountOfStakers(uint256 _cid) public returns(uint) {
-        CollectionInfo memory collection = collectionInfo[_cid];
-        return collection.amountOfStakers;
-    }
-
 }
