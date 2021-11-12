@@ -180,7 +180,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _id
     ) internal {
         UserInfo storage user = userInfo[_user];
-        CollectionInfo memory collection = collectionInfo[_cid];
+        CollectionInfo storage collection = collectionInfo[_cid];
 
         require(
             user.stakedTokens[collection.collectionAddress].length <
@@ -194,7 +194,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
             _id
         );
 
-        if (user.stakedTokens[collection.collectionAddress].length == 0) { // potential issue here where if statement isn't triggering %%%%%%%%%%%%%%%%%%%%%%%%%%
+        if (user.stakedTokens[collection.collectionAddress].length == 0) { 
             collection.amountOfStakers += 1;
         }
 
@@ -226,7 +226,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         uint256 _id
     ) internal {
         UserInfo storage user = userInfo[_user];
-        CollectionInfo memory collection = collectionInfo[_cid];
+        CollectionInfo storage collection = collectionInfo[_cid];
 
         require(
             tokenOwners[collection.collectionAddress][_id] == _user,
@@ -241,6 +241,10 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         );
 
         user.stakedTokens[collection.collectionAddress].removeElement(_id);
+
+        if (user.stakedTokens[collection.collectionAddress].length == 0) {
+            collection.amountOfStakers -= 1;
+        }
         
         // delete will leave 0x000...000
         delete tokenOwners[collection.collectionAddress][_id];
@@ -248,9 +252,9 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         user.stakedTimestamp = 0;
         user.amountStaked -= 1;
 
-        if (user.amountStaked == 0) {
-            delete userInfo[_user];
-        }
+        //if (user.amountStaked == 0) {
+        //    delete userInfo[_user];
+        //}
     }
 
     /**
@@ -490,21 +494,22 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     }
 
     /**
-     *    @notice set the gas limit of the Provable oracle's __callback() call. Any unused gas goes to Provable.
+     *    @notice set the gas limit for the Provable oracle __callback() call. Unspent gas is retained by Provable.
      *    @param _newGasLimit => gas limit in Wei
      */
     function setOracleCallbackGasLimit(uint _newGasLimit) public onlyOwner {
         oracleCallbackGasLimit = _newGasLimit;
     }
 
-    function getUser(address _user, address _collection) public view returns (uint256, uint256, uint256, uint256[] memory){
-        UserInfo storage user = userInfo[_user];
-        uint256 amountStaked = user.amountStaked;
-        uint256 daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
-        uint256 userBalance = user.userBalance;
-        uint256[] memory stakedTokens = user.stakedTokens[_collection];
 
-        return (amountStaked, daysStaked, userBalance, stakedTokens);
+    function getUser(address _user, address _collection) public view returns (uint256){
+        UserInfo storage user = userInfo[_user];
+        return user.amountStaked;
+    }
+
+    function getCollectionInfo(uint256 _cid) public view returns (uint256) {
+        CollectionInfo memory collection = collectionInfo[_cid];
+        return collection.amountOfStakers;
     }
     
 

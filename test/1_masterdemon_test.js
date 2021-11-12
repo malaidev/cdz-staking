@@ -2,6 +2,7 @@ const LLTH = artifacts.require('MockLLTH');
 const Collection = artifacts.require('MockCollection');
 const Masterdemon = artifacts.require('Masterdemon');
 
+const { assert } = require('chai');
 const truffleAssert = require('truffle-assertions');
 
 contract(
@@ -41,11 +42,12 @@ contract(
       let amountStaked;
       await collection.setApprovalForAll(masterdemon.address, true);
       await masterdemon.stake(0, 0, { from: accounts[0] });
+      await masterdemon.unstake(0, 0, { from: accounts[0] })
       await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res['0'];
+        amountStaked = res;
       });
 
-      assert.equal(amountStaked.words[0], 1);
+      assert.equal(amountStaked.words[0], 0);
     });
 
     it('[ Masterdemon ] Should Allow Batch Staking', async () => {
@@ -53,7 +55,7 @@ contract(
       await collection.setApprovalForAll(masterdemon.address, true);
       await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0] });
       await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res['0'];
+        amountStaked = res;
       });
 
       assert.equal(amountStaked.words[0], 3);
@@ -65,7 +67,7 @@ contract(
       await masterdemon.stake(0, 0, { from: accounts[0] });
       await masterdemon.unstake(0, 0, { from: accounts[0] });
       await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res['0'];
+        amountStaked = res;
       });
 
       assert.equal(amountStaked.words[0], 0);
@@ -77,7 +79,7 @@ contract(
       await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0] });
       await masterdemon.batchUnstake(0, [1, 2, 3], { from: accounts[0] });
       await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res['0'];
+        amountStaked = res;
       });
 
       assert.equal(amountStaked.words[0], 0);
@@ -93,12 +95,12 @@ contract(
     let masterdemon;
 
     beforeEach(async () => {
-      llth = await LLTH.deployed();
-      collection = await Collection.deployed();
-      masterdemon = await Masterdemon.deployed();
+      llth = await LLTH.new();
+      collection = await Collection.new();
+      masterdemon = await Masterdemon.new(llth.address)
 
       // _id = 0
-      collection.mint(1, accounts[0]);
+      collection.mint(2, accounts[0]);
       collection.mint(1, accounts[1]);
 
       // _cid = 0
@@ -128,10 +130,22 @@ contract(
     it(' [ Masterdemon advanced ] Should Calculate amountOfStakers Correctly', async () => {
         let amountOfStakers;
 
+        await collection.setApprovalForAll(masterdemon.address, true, { from: accounts[0] });
+        await collection.setApprovalForAll(masterdemon.address, true, { from: accounts[1] });
+
+        await masterdemon.stake(0, 0, { from: accounts[0] });
+        await masterdemon.stake(0, 1, { from: accounts[0] });
+        await masterdemon.stake(0, 2, { from: accounts[1] });
+        await masterdemon.getCollectionInfo(0).then(res => amountOfStakers = res.words[0]);
+        assert.equal(amountOfStakers, 2);
+
         await masterdemon.unstake(0, 0, { from: accounts[0] });
-        //await masterdemon.getCollectionInfo(0).then(res => {
-        //  console.log(res)
-        //})
+        await masterdemon.getCollectionInfo(0).then(res => amountOfStakers = res.words[0]);
+        assert.equal(amountOfStakers, 2);
+
+        await masterdemon.unstake(0, 1, { from: accounts[0] });
+        await masterdemon.getCollectionInfo(0).then(res => amountOfStakers = res.words[0]);
+        assert.equal(amountOfStakers, 1);
 
     });
   },
