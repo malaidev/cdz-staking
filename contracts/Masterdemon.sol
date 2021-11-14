@@ -28,7 +28,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         mapping(address => uint256[]) stakedTokens;
         mapping(address => uint256) timeStaked;
         uint256 amountStaked;
-        uint256 stakedTimestamp;
         uint256 userBalance;
     }
 
@@ -62,7 +61,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 maturityPeriod;
         uint256 amountOfStakers;
         uint256 stakingLimit;
-        uint256 requiredTimeToGetRewards;
     }
 
     /**
@@ -214,27 +212,52 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         user.timeStaked[collection.collectionAddress] = 0;
         user.amountStaked -= 1;
 
-        // if (user.amountStaked == 0) {
-        //    delete userInfo[_user];
-        // }
+        if (user.amountStaked == 0) {
+            delete userInfo[_user];
+        }
     }
 
     /**
      *    @notice internal _harvest function, called in external harvest
      *    @param _user => msg.sender
      *    @param _cid => collection id
-     *
-     *    - Calculating daysStaked by converting unix epoch to days (dividing on 60 / 60 / 24)
-     *    - Collection must be stakable
-     *    - daysStaked must be over maturityPeriod of given collection
-     *    - To sum rewards from every single nft staked in given collection, we are looping
-     *    thru user.stakedTokens mapping of address => array.
-     *    - Check rarity of each token, calculate rewards and push them into user.userBalance
-     *    - Mint rewards
-     *    - Reset userBalance to 0.
      */
     function _harvest(address _user, uint256 _cid) internal {
-    
+        CollectionInfo storage collection = collectionInfo[_cid];
+        UserInfo storage user = userInfo[_user];
+        uint256 timeStaked = (block.timestamp -
+            user.timeStaked[collection.collectionAddress]) /
+            60 /
+            60 /
+            24;
+
+        require(
+            collection.isStakable == true,
+            "masterdemon._harvest: Harvesting has finished"
+        );
+        require(
+            timeStaked > collection.maturityPeriod,
+            "masterdemon._harvest: You can't harvest yet"
+        );
+
+        uint256 reward = 0;
+        for (
+            uint256 i;
+            i < user.stakedTokens[collection.collectionAddress].length;
+            i++
+        ) {
+            reward += _getReward(
+                tokenRarities[collection.collectionAddress][
+                    user.stakedTokens[collection.collectionAddress][i]
+                ],
+                timeStaked,
+                collection.multiplier,
+                collection.amountOfStakers
+            );
+        }
+
+        llth.mint(_user, reward*(10**18));
+        user.timeStaked[collection.collectionAddress] = 0;
     }
 
     /**
@@ -254,6 +277,16 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         return finalReward;
     }
 
+    /*-------------------------------Oracle related-------------------------------*/
+
+    function _getRarities(address _collection) internal pure returns (uint256[] memory) {
+    
+    }
+
+    function _setRarities(address _collection) public {
+        tokenRarities[_collection] = _getRarities(_collection);
+    }
+
     /*-------------------------------Admin functions-------------------------------*/
 
     /**
@@ -267,8 +300,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _stakingLimit,
-        uint256 _requiredTimeToGetRewards
+        uint256 _stakingLimit
     ) public onlyOwner {
         collectionInfo.push(
             CollectionInfo({
@@ -279,8 +311,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
                 amountOfStakers: 0,
-                stakingLimit: _stakingLimit,
-                requiredTimeToGetRewards: _requiredTimeToGetRewards
+                stakingLimit: _stakingLimit
             })
         );
     }
@@ -297,8 +328,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _stakingLimit,
-        uint256 _requiredTimeToGetRewards
+        uint256 _stakingLimit
     ) public onlyOwner {
         CollectionInfo memory collection = collectionInfo[_cid];
         collection.isStakable = _isStakable;
@@ -308,7 +338,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collection.multiplier = _multiplier;
         collection.maturityPeriod = _maturityPeriod;
         collection.stakingLimit = _stakingLimit;
-        collection.requiredTimeToGetRewards = _requiredTimeToGetRewards;
     }
 
     /**
@@ -369,7 +398,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             uint256,
             uint256,
             uint256,
-            uint256,
             uint256
         )
     {
@@ -381,8 +409,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             collection.multiplier,
             collection.maturityPeriod,
             collection.amountOfStakers,
-            collection.stakingLimit,
-            collection.requiredTimeToGetRewards
+            collection.stakingLimit
         );
     }
 
@@ -400,5 +427,3 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             );
     }
 }
-
-
