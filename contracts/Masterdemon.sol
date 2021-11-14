@@ -8,29 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./mocks/MockLLTH.sol";
-import "./provableAPI.sol";
 import "./libs/Array.sol";
 
-contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
+contract Masterdemon is Ownable, ReentrancyGuard {
     using Address for address;
     using Array for uint256[];
-
-    string public apiURL =
-        "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API. Returns number between 50 & 350
-    uint256 public oracleCallbackGasLimit;
-
-    /**
-     *    @notice keep track of info needed in __callback() function
-     *
-     *    'userAddress' => address of the user calling the harvest() function
-     *    'collectionAddress' => address of collection user is harvesting rewards of
-     *    'cid' => identifier of collection user is harvesting rewards of
-     */
-    struct harvesterInfo {
-        address userAddress;
-        address collectionAddress;
-        uint256 cid;
-    }
 
     /**
      *    @notice keep track of each user and their info
@@ -84,31 +66,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
     }
 
     /**
-     *    @notice emitted when oracle query sent
-     */
-    event LogNewProvableQuery(string description);
-
-    /**
-     *    @notice emitted when oracle calls __callback() function
-     */
-    event Callback(string result);
-
-    /**
-     *    @notice map hash of user address and cid, to the number of staked tokens owned by a user for a specfic collection to harvest.
-     */
-    mapping(bytes32 => uint256) loopsLeft;
-
-    /**
-     *    @notice map oracle query id to struct harvesterInfo for access in __callback()
-     */
-    mapping(bytes32 => harvesterInfo) idToHarvesterInfo;
-
-    /**
-     *    @notice map status of pending oracle queries
-     */
-    mapping(bytes32 => bool) pendingQueries;
-
-    /**
      *    @notice map user addresses over their info
      */
     mapping(address => UserInfo) public userInfo;
@@ -136,11 +93,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
 
     constructor(MockLLTH _llth) public {
         llth = _llth;
-
-        provable_setCustomGasPrice(200000000000); // 200 gwei gas price  // MUST RUN BRIDGE IF NOT COMMENTED OUT
-
-        // TESTING PURPOSES ONLY - for testing oracle queries on locally run blockchain %%%%%%%%%
-        OAR = OracleAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475); // %%%%%%%%%%%%%%%
     }
 
     /*-------------------------------Main external functions-------------------------------*/
@@ -282,125 +234,7 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
      *    - Reset userBalance to 0.
      */
     function _harvest(address _user, uint256 _cid) internal {
-        UserInfo storage user = userInfo[_user];
-        CollectionInfo memory collection = collectionInfo[_cid];
-
-        uint256 userTokensStakedInPool = user
-            .stakedTokens[collection.collectionAddress]
-            .length;
-        require(
-            userTokensStakedInPool > 0,
-            "You have no tokens staked in this pool"
-        );
-
-        uint256 daysStaked;
-        if (user.stakedTimestamp == 0) {
-            // i.e. token not currently being staked
-            daysStaked = 0;
-        } else {
-            daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
-        }
-
-        require(
-            daysStaked >= collection.maturityPeriod,
-            "Masterdemon._harvest: You can't harvest yet"
-        );
-
-        require(
-            collection.isStakable == true,
-            "Masterdemon._harvest: Staking in given pool has finished"
-        );
-
-        bytes32 hash = bytes32(abi.encodePacked(_user, _cid));
-
-        // adjust to handle the instance where queries get stuck due to too low of a gas price
-        require(loopsLeft[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst __callback() calls are still ongoing
-
-        // stores uint of how many tokens to get rarity score of. Accessed in __callback() function
-        loopsLeft[hash] = userTokensStakedInPool;
-
-        for (uint256 i; i < userTokensStakedInPool; ++i) {
-            uint256 currentId = user.stakedTokens[collection.collectionAddress][
-                i
-            ];
-            _getRarity(_user, _cid, collection.collectionAddress, currentId);
-        }
-    }
-
-    /*-------------------------------Rarity related functions-------------------------------*/
-
-    function _getRarity(
-        address _user,
-        uint256 _cid,
-        address _collectionAddress,
-        uint256 _nftId
-    ) public payable {
-        // % VISIBILTY MIGHT NEED CHANGING %%%%%%%%%%%%%%%%%%%%%%
-        require(
-            provable_getPrice("URL") < address(this).balance,
-            "Not enough ether held in smart contract to cover oracle fee, contact admin"
-        );
-
-        // string memory args = string(abi.encodePacked('{"nftId":', _nftId,', "collectionAddress": ', _collectionAddress,'}'));  // JUST AN EXAMPLE
-        //bytes32 queryId = provable_query("URL", apiURL, args);
-        bytes32 queryId = provable_query("URL", apiURL); // SPECIFY GAS LIMIT AS FINAL ARG. (Default is 200k, any unused gas goes to Provable) %%%%%%%%%
-        // 97,403 gas used for _callback of older version (see https://rinkeby.etherscan.io/tx/0x58396b3e08cc251a1c1d5d082821f2d7af63f17bdda54509b0ebb80189f90670)
-
-        pendingQueries[queryId] = true;
-        emit LogNewProvableQuery(
-            "Provable query was sent, standing by for the answer.."
-        );
-
-        idToHarvesterInfo[queryId].userAddress = _user; // stored so __callback function can retrieve this info later
-        idToHarvesterInfo[queryId].cid = _cid; // stored so __callback function can retrieve this info later
-    }
-
-    // called by Provable oracle
-    function __callback(bytes32 _myid, string memory _result) public override {
-        require(msg.sender == provable_cbAddress()); // must be called by Provable oracle
-        require(pendingQueries[_myid] == true);
-
-        pendingQueries[_myid] == false;
-
-        emit Callback(_result);
-
-        uint256 rarity = parseInt(_result);
-
-        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rarity = 100; // for TESTING ONLY, ensures rarity score is always 100 %%%%%%%%%%%%%%%%%%
-        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        require(
-            rarity >= 50 && rarity <= 350,
-            "Masterdemon._harvest: Wrong range"
-        );
-
-        address userAddress = idToHarvesterInfo[_myid].userAddress;
-        UserInfo storage user = userInfo[userAddress];
-        uint256 daysStaked = (block.timestamp - user.stakedTimestamp) / 86400;
-
-        uint256 cid = idToHarvesterInfo[_myid].cid;
-        CollectionInfo memory collection = collectionInfo[cid];
-
-        uint256 reward = _getReward(
-            rarity,
-            daysStaked,
-            collection.multiplier,
-            collection.amountOfStakers
-        );
-
-        user.userBalance += reward;
-
-        bytes32 hash = bytes32(abi.encodePacked(userAddress, cid));
-        loopsLeft[hash]--;
-        uint256 numOfLoopsLeft = loopsLeft[hash];
-
-        if (numOfLoopsLeft == 0) {
-            // if all NFT rewards of a user's collection have been calculated then transfer tokens
-            llth.mint(userAddress, user.userBalance);
-            user.userBalance = 0;
-            user.stakedTimestamp = block.timestamp; // resets stakedTimestamp
-        }
+    
     }
 
     /**
@@ -504,22 +338,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
         }
     }
 
-    /**
-     *    @notice set the gas price that the Provable oracle uses to call the __callback() function
-     *    @param _newGasPrice => gas price in Wei
-     */
-    function setOracleGasPrice(uint256 _newGasPrice) public onlyOwner {
-        provable_setCustomGasPrice(_newGasPrice);
-    }
-
-    /**
-     *    @notice set the gas limit for the Provable oracle __callback() call. Unspent gas is retained by Provable.
-     *    @param _newGasLimit => gas limit in Wei
-     */
-    function setOracleCallbackGasLimit(uint256 _newGasLimit) public onlyOwner {
-        oracleCallbackGasLimit = _newGasLimit;
-    }
-
     /*-------------------------------Get functions for frontend-------------------------------*/
 
     function getUserInfo(address _user, address _collection)
@@ -581,24 +399,6 @@ contract Masterdemon is Ownable, ReentrancyGuard, usingProvable {
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
     }
-
-    /**
-     *    @notice Will receive any eth sent to the contract (funding oracle calls for example)
-     */
-    receive() external payable {}
-
-    // TESTING ONLY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function withdraw() public {
-        payable(msg.sender).transfer(address(this).balance);
-    }
-
-    function mintLilith(uint256 _amount) public {
-        llth.mint(msg.sender, _amount);
-    }
-
-    uint256 public price;
-
-    function viewProvablePrice() public {
-        price = provable_getPrice("URL");
-    }
 }
+
+
