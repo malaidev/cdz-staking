@@ -52,8 +52,6 @@ contract("Masterdemon - Orcale testing", async accounts => {
             1, // stakingFee
             1, // harvestingFee
             2, // multiplier
-            0, // maturityPeriod
-            20, // stakingLimit
         );
 
         await collection.mint(3, accounts[1]);
@@ -69,8 +67,6 @@ contract("Masterdemon - Orcale testing", async accounts => {
         expect(await collection.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(2));
         expect(await collection.balanceOf(masterdemon.address)).to.be.a.bignumber.equal(new BN(1));
 
-
-        console.log((await masterdemon.viewAmountOfStakers(0)).toString()); 
 
 
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(0)); // LLTH balance should be zero
