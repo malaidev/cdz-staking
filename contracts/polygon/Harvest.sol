@@ -1,10 +1,22 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.7;
+
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 
+import "./mocks/MockLLTH.sol";
+import "./mocks/MockCollection.sol";
+
 contract Harvest is Ownable, ChainlinkClient {
+    
+    
+    /**
+        @notice Lilith token
+     */
+    MockLLTH public llth;
 
     using Address for address;
     using Chainlink for Chainlink.Request;
@@ -40,7 +52,9 @@ contract Harvest is Ownable, ChainlinkClient {
      * 
      * Network: Polygon Mumbai TESTNET
      */
-    constructor() {
+    constructor(MockLLTH _llth) {
+        
+        llth = _llth; // sets address of LLTH token
 
         // LINK token address on Polygon Mumbai testnet ONLY (Change to main net address before production deployment)
         setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB); 
@@ -50,14 +64,17 @@ contract Harvest is Ownable, ChainlinkClient {
         oracleFee = 0.01  * 10 ** 18; // (Varies by network and job)
     }
 
+
     mapping(address => Data) dataMap;
+    
+    mapping(bytes32 => HarvestInfo) idToHarvestInfo;
+
 
     mapping(bytes32 => uint) tokensLeftToHarvest;
 
-
     mapping(address => uint) pendingBalance;
 
-    mapping(bytes32 => HarvestInfo) idToHarvestInfo;
+   
 
     function setData(
         uint256[] memory _tokens,
@@ -82,7 +99,7 @@ contract Harvest is Ownable, ChainlinkClient {
         Data memory data = dataMap[msg.sender];
 
         require(
-            msg.value > fee, "Harvest.harvest: Cover fee"
+            msg.value >= fee, "Harvest.harvest: Cover fee"
         );
         require(
             data.user == msg.sender,
@@ -177,7 +194,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
         if (tokensLeftToHarvest[hash] == 0) {
             // if all NFT rewards of a user's collection have been calculated then transfer tokens
-            //llth.mint(user, pendingBalance[user]);
+            llth.mint(user, pendingBalance[user]);
             pendingBalance[user] = 0;
         }
     }
@@ -206,7 +223,7 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     function setFee(uint256 _value) public onlyOwner {
-        require(fee != _value, "Harvest.setFee: Value already set");
+        require(fee != _value, "Harvest.setFee: Value already set to that");
         fee = _value;
     }
 
