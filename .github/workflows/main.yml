@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@dev
+        uses: actions/checkout@2
+        with:
+          ref: "dev"
 
       - name: compile code
         run: npx truffle compile
