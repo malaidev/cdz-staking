@@ -115,10 +115,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         }
     }
 
-    function harvest(uint256 _cid) external {
-        _harvest(msg.sender, _cid);
-    }
-
     /*-------------------------------Main internal functions-------------------------------*/
 
     /**
@@ -215,76 +211,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (user.amountStaked == 0) {
             delete userInfo[_user];
         }
-    }
-
-    /**
-     *    @notice internal _harvest function, called in external harvest
-     *    @param _user => msg.sender
-     *    @param _cid => collection id
-     */
-    function _harvest(address _user, uint256 _cid) internal {
-        CollectionInfo storage collection = collectionInfo[_cid];
-        UserInfo storage user = userInfo[_user];
-        uint256 timeStaked = (block.timestamp -
-            user.timeStaked[collection.collectionAddress]) /
-            60 /
-            60 /
-            24;
-
-        require(
-            collection.isStakable == true,
-            "masterdemon._harvest: Harvesting has finished"
-        );
-        require(
-            timeStaked > collection.maturityPeriod,
-            "masterdemon._harvest: You can't harvest yet"
-        );
-
-        uint256 reward = 0;
-        for (
-            uint256 i;
-            i < user.stakedTokens[collection.collectionAddress].length;
-            i++
-        ) {
-            reward += _getReward(
-                tokenRarities[collection.collectionAddress][
-                    user.stakedTokens[collection.collectionAddress][i]
-                ],
-                timeStaked,
-                collection.multiplier,
-                collection.amountOfStakers
-            );
-        }
-
-        llth.mint(_user, reward*(10**18));
-        user.timeStaked[collection.collectionAddress] = 0;
-    }
-
-    /**
-     *    @notice calculate rewards of each NFT based on our formula
-     *    {see whitepaper for clear explanation}
-     */
-    function _getReward(
-        uint256 _rarity,
-        uint256 _daysStaked,
-        uint256 _multiplier,
-        uint256 _amountOfStakers
-    ) internal pure returns (uint256) {
-        uint256 baseMultiplier = _multiplier * _daysStaked;
-        uint256 basemultiplierxRarity = baseMultiplier * _rarity;
-        uint256 finalReward = basemultiplierxRarity / _amountOfStakers; // possible losses here due to solidity rounding down
-
-        return finalReward;
-    }
-
-    /*-------------------------------Oracle related-------------------------------*/
-
-    function _getRarities(address _collection) internal pure returns (uint256[] memory) {
-    
-    }
-
-    function _setRarities(address _collection) public {
-        tokenRarities[_collection] = _getRarities(_collection);
     }
 
     /*-------------------------------Admin functions-------------------------------*/

@@ -2,17 +2,13 @@
 
 pragma solidity ^0.8.7;
 
-
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 
-import "./mocks/MockLLTH.sol";
-
+import "../mocks/MockLLTH.sol";
 
 contract Harvest is Ownable, ChainlinkClient {
-    
-    
     /**
         @notice Lilith token
      */
@@ -24,6 +20,7 @@ contract Harvest is Ownable, ChainlinkClient {
     struct Data {
         uint256[] tokens;
         uint256 stakingPeriod;
+        uint256 multiplier;
         uint256 amountOfStakers;
         address user;
         address collection;
@@ -37,10 +34,11 @@ contract Harvest is Ownable, ChainlinkClient {
 
     uint256 private fee;
     address payable devAddress;
-  
+
     uint256 public rarity; // TEST PURPOSES ONLY
 
-    string public apiURL = "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API (50-350)
+    string public apiURL =
+        "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API (50-350)
     address private oracle;
     bytes32 private jobId;
     uint256 private oracleFee;
@@ -49,36 +47,32 @@ contract Harvest is Ownable, ChainlinkClient {
      * GET => uint oracle
      *
      * https://market.link/jobs/5bfcaea1-82f5-428a-8695-774a3b9afbde
-     * 
+     *
      * Network: Polygon Mumbai TESTNET
      */
     constructor(MockLLTH _llth) {
-        
         llth = _llth; // sets address of LLTH token
 
         // LINK token address on Polygon Mumbai testnet ONLY (Change to main net address before production deployment)
-        setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB); 
-        
+        setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB);
+
         oracle = 0xc8D925525CA8759812d0c299B90247917d4d4b7C; // Polygon Mumbai testnet ONLY
         jobId = "bbf0badad29d49dc887504bacfbb905b"; // // Polygon Mumbai testnet ONLY
-        oracleFee = 0.01  * 10 ** 18; // (Varies by network and job)
+        oracleFee = 0.01 * 10**18; // (Varies by network and job)
     }
 
-
     mapping(address => Data) dataMap;
-    
+
     mapping(bytes32 => HarvestInfo) idToHarvestInfo;
 
+    mapping(bytes32 => uint256) tokensLeftToHarvest;
 
-    mapping(bytes32 => uint) tokensLeftToHarvest;
-
-    mapping(address => uint) pendingBalance;
-
-   
+    mapping(address => uint256) pendingBalance;
 
     function setData(
         uint256[] memory _tokens,
         uint256 _stakingPeriod,
+        uint256 _multiplier,
         uint256 _amountOfStakers,
         address _user,
         address _collection,
@@ -87,6 +81,7 @@ contract Harvest is Ownable, ChainlinkClient {
         dataMap[_user] = Data(
             _tokens,
             _stakingPeriod,
+            _multiplier,
             _amountOfStakers,
             _user,
             _collection,
@@ -95,12 +90,9 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     function harvest() public payable {
-
         Data memory data = dataMap[msg.sender];
 
-        require(
-            msg.value >= fee, "Harvest.harvest: Cover fee"
-        );
+        require(msg.value >= fee, "Harvest.harvest: Cover fee");
         require(
             data.user == msg.sender,
             "Harvest.harvest: Tempered user address"
@@ -126,14 +118,9 @@ contract Harvest is Ownable, ChainlinkClient {
         sendFee(devAddress, msg.value);
 
         for (uint256 x; x < data.tokens.length; ++x) {
-            _getRarity(
-                data.user,
-                data.collection,
-                data.tokens[x]
-            );
+            _getRarity(data.user, data.collection, data.tokens[x]);
         }
 
-        
         /*
         sendFee(devAddress, msg.value);
         llth.mint(msg.sender, reward);
@@ -148,29 +135,31 @@ contract Harvest is Ownable, ChainlinkClient {
         address collection,
         uint256 tokenId
     ) public {
+        Chainlink.Request memory request = buildChainlinkRequest(
+            jobId,
+            address(this),
+            this.fulfill.selector
+        );
 
-        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
-        
         // Set the URL to perform the GET request on
-        request.add("get", apiURL); 
-        
+        request.add("get", apiURL);
+
         // Sends the request
         bytes32 requestId = sendChainlinkRequestTo(oracle, request, oracleFee);
 
         idToHarvestInfo[requestId].liveOracleCall = true;
 
         // stores user address for access in fulfill callback function
-        idToHarvestInfo[requestId].userAddress = user; 
+        idToHarvestInfo[requestId].userAddress = user;
     }
 
     /**
      * Receive the response in the form of uint256
-     */ 
-    function fulfill(
-        bytes32 _requestId,
-        uint256 _rarity
-    ) public recordChainlinkFulfillment(_requestId) {
-
+     */
+    function fulfill(bytes32 _requestId, uint256 _rarity)
+        public
+        recordChainlinkFulfillment(_requestId)
+    {
         require(idToHarvestInfo[_requestId].liveOracleCall);
         idToHarvestInfo[_requestId].liveOracleCall = false;
 
@@ -183,14 +172,15 @@ contract Harvest is Ownable, ChainlinkClient {
         uint256 reward = _getReward(
             _rarity,
             data.stakingPeriod,
-            data.amountOfStakers            
+            data.multiplier,
+            data.amountOfStakers
         );
 
         pendingBalance[user] += reward;
 
         bytes32 hash = bytes32(abi.encodePacked(data.user, data.collection));
 
-        tokensLeftToHarvest[hash] --;
+        tokensLeftToHarvest[hash]--;
 
         if (tokensLeftToHarvest[hash] == 0) {
             // if all NFT rewards of a user's collection have been calculated then transfer tokens
@@ -199,23 +189,22 @@ contract Harvest is Ownable, ChainlinkClient {
         }
     }
 
-    
-
+    /**
+     *    @notice calculate rewards of each NFT based on our formula
+     *    {see whitepaper for clear explanation}
+     */
     function _getReward(
-        uint _rarity,
-        uint256 _stakingPeriod,
+        uint256 _rarity,
+        uint256 _daysStaked,
+        uint256 _multiplier,
         uint256 _amountOfStakers
     ) internal pure returns (uint256) {
-        return 100; // TEST PURPOSES ONLY
+        uint256 baseMultiplier = _multiplier * _daysStaked;
+        uint256 basemultiplierxRarity = baseMultiplier * _rarity;
+        uint256 finalReward = basemultiplierxRarity / _amountOfStakers; // possible losses here due to solidity rounding down
+
+        return finalReward;
     }
-
-    
-
-
-
-
-
-   
 
     function sendFee(address payable _to, uint256 _value) public payable {
         (bool sent, bytes memory data) = _to.call{ value: _value }("");
@@ -234,21 +223,20 @@ contract Harvest is Ownable, ChainlinkClient {
 
     receive() external payable {}
 
-
     /**
      * @dev Withdraw all LINK tokens from smart contract to address '_to'
      */
-    function withdrawLink(address payable _to) public onlyOwner { 
+    function withdrawLink(address payable _to) public onlyOwner {
         LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
-        LINK.transfer(_to, LINK.balanceOf(address(this))); 
+        LINK.transfer(_to, LINK.balanceOf(address(this)));
     }
-    
+
     function setOracleParams(
         string memory _apiURL,
         address _oracleAddress,
-        bytes32 _jobId, 
-        uint _oracleFee
-    ) public onlyOwner { 
+        bytes32 _jobId,
+        uint256 _oracleFee
+    ) public onlyOwner {
         apiURL = _apiURL;
         oracle = _oracleAddress;
         jobId = _jobId;
