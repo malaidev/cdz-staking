@@ -1,4 +1,9 @@
 build/
 node_modules/
 bridge.log
+<<<<<<< HEAD
 secrets.json
+=======
+yarn-error.log
+yarn.lock
+>>>>>>> 1be94fb68546e3f1cb7534f6ace9e4d58fb8c183
