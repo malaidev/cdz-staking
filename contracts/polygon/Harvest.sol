@@ -19,7 +19,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
     struct Data {
         uint256[] tokens;
-        uint256 stakingPeriod;
+        uint256 stakingTimestamp;
         uint256 multiplier;
         uint256 amountOfStakers;
         address user;
@@ -71,7 +71,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
     function setData(
         uint256[] memory _tokens,
-        uint256 _stakingPeriod,
+        uint256 _stakingTimestamp,
         uint256 _multiplier,
         uint256 _amountOfStakers,
         address _user,
@@ -80,7 +80,7 @@ contract Harvest is Ownable, ChainlinkClient {
     ) public onlyOwner {
         dataMap[_user] = Data(
             _tokens,
-            _stakingPeriod,
+            _stakingTimestamp,
             _multiplier,
             _amountOfStakers,
             _user,
@@ -106,7 +106,6 @@ contract Harvest is Ownable, ChainlinkClient {
             "Harvest.harvest: You can't harvest, if pool is empty"
         );
 
-        // store data.tokens.length for use in fullfill callback function
         bytes32 hash = bytes32(abi.encodePacked(data.user, data.collection));
 
         // TO DO: adjust to handle the instance where fulfill callback never called
@@ -121,10 +120,9 @@ contract Harvest is Ownable, ChainlinkClient {
             _getRarity(data.user, data.collection, data.tokens[x]);
         }
 
-        /*
+        
         sendFee(devAddress, msg.value);
-        llth.mint(msg.sender, reward);
-        */
+        
     }
 
     /**
@@ -169,9 +167,11 @@ contract Harvest is Ownable, ChainlinkClient {
 
         Data memory data = dataMap[user];
 
+        uint daysStaked = (block.timestamp - data.stakingTimestamp) / (24*60*60);
+
         uint256 reward = _getReward(
             _rarity,
-            data.stakingPeriod,
+            daysStaked,
             data.multiplier,
             data.amountOfStakers
         );
