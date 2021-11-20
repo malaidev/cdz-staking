@@ -19,10 +19,11 @@
  */
 
 const HDWalletProvider = require('@truffle/hdwallet-provider');
+require('dotenv').config();
+
 //
 // const fs = require('fs');
-const mnemonic = require("./secrets.json").mnemonic;
-const infuraURL = require("./secrets.json").infuraURL;
+
 
 module.exports = {
   /**
@@ -59,7 +60,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     mumbai: {
-      provider: () => new HDWalletProvider(mnemonic, infuraURL),
+      provider: () => new HDWalletProvider(process.env.MNEMONIC, "https://polygon-mumbai.infura.io/v3/" + process.env.INFURA_KEY),
       network_id: 80001,       // Ropsten's id
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)
