@@ -10,17 +10,11 @@ jobs:
     name: basic compiling
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
       - uses: actions/checkout@v2
         with:
           ref: "dev"
-          
       - uses: actions/setup-node@v1
         with:
           node-version: 14
-
-      - name: install deps
-        run: npm install
-      
-      - name: compile code
-        run: npx truffle compile
+      - run: npm install 
+      - run: npx truffle compile
