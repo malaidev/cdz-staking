@@ -29,6 +29,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
     struct HarvestInfo {
         address userAddress;
+        address collection;
         bool liveOracleCall;
     }
 
@@ -61,13 +62,18 @@ contract Harvest is Ownable, ChainlinkClient {
         oracleFee = 0.01 * 10**18; // (Varies by network and job)
     }
 
-    mapping(address => Data) dataMap;
+    mapping(bytes32 => Data) dataMap;
 
     mapping(bytes32 => HarvestInfo) idToHarvestInfo;
 
     mapping(bytes32 => uint256) tokensLeftToHarvest;
 
-    mapping(address => uint256) pendingBalance;
+    mapping(bytes32 => uint256) pendingBalance;
+
+
+
+
+    
 
     function setData(
         uint256[] memory _tokens,
@@ -78,7 +84,10 @@ contract Harvest is Ownable, ChainlinkClient {
         address _collection,
         bool _isStakable
     ) public onlyOwner {
-        dataMap[_user] = Data(
+
+        bytes32 hash = bytes32(abi.encodePacked(_user, _collection));
+
+        dataMap[hash] = Data(
             _tokens,
             _stakingTimestamp,
             _multiplier,
@@ -89,8 +98,11 @@ contract Harvest is Ownable, ChainlinkClient {
         );
     }
 
-    function harvest() public payable {
-        Data memory data = dataMap[msg.sender];
+    function harvest(address _collection) public payable {
+
+        bytes32 hash = bytes32(abi.encodePacked(msg.sender, _collection));
+
+        Data memory data = dataMap[hash];
 
         require(msg.value >= fee, "Harvest.harvest: Cover fee");
         require(
@@ -105,8 +117,6 @@ contract Harvest is Ownable, ChainlinkClient {
             data.amountOfStakers != 0,
             "Harvest.harvest: You can't harvest, if pool is empty"
         );
-
-        bytes32 hash = bytes32(abi.encodePacked(data.user, data.collection));
 
         // TO DO: adjust to handle the instance where fulfill callback never called
         require(tokensLeftToHarvest[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst fulfill() callback calls are still ongoing
@@ -129,9 +139,9 @@ contract Harvest is Ownable, ChainlinkClient {
      * Creates a Chainlink request to retrieve API response.
      */
     function _getRarity(
-        address user,
-        address collection,
-        uint256 tokenId
+        address _user,
+        address _collection,
+        uint256 _tokenId
     ) public {
         Chainlink.Request memory request = buildChainlinkRequest(
             jobId,
@@ -148,7 +158,8 @@ contract Harvest is Ownable, ChainlinkClient {
         idToHarvestInfo[requestId].liveOracleCall = true;
 
         // stores user address for access in fulfill callback function
-        idToHarvestInfo[requestId].userAddress = user;
+        idToHarvestInfo[requestId].userAddress = _user;
+        idToHarvestInfo[requestId].collection = _collection;
     }
 
     /**
@@ -164,8 +175,11 @@ contract Harvest is Ownable, ChainlinkClient {
         rarity = _rarity; // TEST PURPOSES ONLY
 
         address user = idToHarvestInfo[_requestId].userAddress;
+        address collection = idToHarvestInfo[_requestId].collection;
 
-        Data memory data = dataMap[user];
+        bytes32 hash = bytes32(abi.encodePacked(user, collection));
+
+        Data memory data = dataMap[hash];
 
         uint daysStaked = (block.timestamp - data.stakingTimestamp) / (24*60*60);
 
@@ -176,16 +190,14 @@ contract Harvest is Ownable, ChainlinkClient {
             data.amountOfStakers
         );
 
-        pendingBalance[user] += reward;
-
-        bytes32 hash = bytes32(abi.encodePacked(data.user, data.collection));
+        pendingBalance[hash] += reward;
 
         tokensLeftToHarvest[hash]--;
 
         if (tokensLeftToHarvest[hash] == 0) {
             // if all NFT rewards of a user's collection have been calculated then transfer tokens
-            llth.mint(user, pendingBalance[user]);
-            pendingBalance[user] = 0;
+            llth.mint(user, pendingBalance[hash]);
+            pendingBalance[hash] = 0;
         }
     }
 
