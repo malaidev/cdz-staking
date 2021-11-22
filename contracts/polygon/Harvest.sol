@@ -39,7 +39,7 @@ contract Harvest is Ownable, ChainlinkClient {
     uint256 public rarity; // TEST PURPOSES ONLY
 
     string public apiURL =
-        "https://www.random.org/integers/?num=1&min=50&max=350&col=1&base=10&format=plain&rnd=new"; // random number API (50-350)
+        "https://api.lilithswap.com/rand"; 
     address private oracle;
     bytes32 private jobId;
     uint256 private oracleFee;
@@ -171,9 +171,13 @@ contract Harvest is Ownable, ChainlinkClient {
     {
         require(idToHarvestInfo[_requestId].liveOracleCall);
         idToHarvestInfo[_requestId].liveOracleCall = false;
-
-        rarity = _rarity; // TEST PURPOSES ONLY
-
+        
+        
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        _rarity = 100; // TEST PURPOSES ONLY
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        
         address user = idToHarvestInfo[_requestId].userAddress;
         address collection = idToHarvestInfo[_requestId].collection;
 
@@ -233,16 +237,6 @@ contract Harvest is Ownable, ChainlinkClient {
         devAddress = _newDev;
     }
 
-    receive() external payable {}
-
-    /**
-     * @dev Withdraw all LINK tokens from smart contract to address '_to'
-     */
-    function withdrawLink(address payable _to) public onlyOwner {
-        LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
-        LINK.transfer(_to, LINK.balanceOf(address(this)));
-    }
-
     function setOracleParams(
         string memory _apiURL,
         address _oracleAddress,
@@ -254,4 +248,26 @@ contract Harvest is Ownable, ChainlinkClient {
         jobId = _jobId;
         oracleFee = _oracleFee;
     }
+
+    
+
+    /**
+     * @dev Withdraw all LINK tokens from smart contract to address '_to'
+     */
+    function withdrawLink(address payable _to) public onlyOwner {
+        LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
+        LINK.transfer(_to, LINK.balanceOf(address(this)));
+    }
+
+    /**
+     * @dev View LINK token balance of smart contract
+     */
+    function viewLinkBalance() public returns(uint) {
+        LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
+        return LINK.balanceOf(address(this));
+    }
+
+    receive() external payable {}
+
+    
 }
