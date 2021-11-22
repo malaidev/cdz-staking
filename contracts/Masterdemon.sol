@@ -1,20 +1,16 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.7;
 
-<<<<<<< HEAD
 /**
  * @title Cryptodemonz NFT staking contract
  * @author lawrence_of_arabia & kisile
  */
 
-=======
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 import "./mocks/MockLLTH.sol";
 import "./libs/Array.sol";
 
@@ -82,13 +78,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     mapping(address => mapping(uint256 => address)) public tokenOwners;
 
     /**
-<<<<<<< HEAD
      *   @notice collection address => nft rarities where index = nft id
      *   @dev extremely heavy array warning, traversing is suicide!
-=======
-     *     @notice collection address => nft rarities where index = nft id
-     *     @dev extremely heavy array warning, traversing is suicide!
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
      */
     mapping(address => uint256[]) public tokenRarities;
 
@@ -98,7 +89,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     CollectionInfo[] public collectionInfo;
 
     /**
-<<<<<<< HEAD
      *   @notice Lilith token
      */
     MockLLTH public llth;
@@ -108,12 +98,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
      */
     address payable devAddress;
 
-=======
-        @notice Lilith token
-     */
-    MockLLTH public llth;
-
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
     constructor(MockLLTH _llth) public {
         llth = _llth;
     }
@@ -121,10 +105,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /*-------------------------------Main external functions-------------------------------*/
 
     function stake(uint256 _cid, uint256 _id) external {
-<<<<<<< HEAD
         sendFee(devAddress, collectionInfo[_cid].stakingFee);
-=======
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
         _stake(msg.sender, _cid, _id);
     }
 
@@ -151,11 +132,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     *    @param _user => msg.sender
     *    @param _cid => collection id, to get correct one from array
     *    @param _id => nft id
-<<<<<<< HEAD
     *
-=======
-
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
     *    - First we have to check if user reached the staking limitation.
     *    - We transfer their NFT to contract
     *    - If user never staked here before, we increment amountOfStakers
@@ -246,7 +223,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         }
     }
 
-<<<<<<< HEAD
     /**
         @notice safer way to send ethereum, will revert on fail
         @param _to => dev address in our case
@@ -257,8 +233,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         require(sent, "Harvest.sendFee: Failed to send fee");
     }
 
-=======
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
     /*-------------------------------Admin functions-------------------------------*/
 
     /**
@@ -339,14 +313,11 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         }
     }
 
-<<<<<<< HEAD
     function setDev(address payable _newDev) public onlyOwner {
         require(devAddress != _newDev, "Masterdemon.setDev: Value already set");
         devAddress = _newDev;
     }
 
-=======
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
     /*-------------------------------Get functions for frontend-------------------------------*/
 
     function getUserInfo(address _user, address _collection)
@@ -406,9 +377,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 keccak256("onERC721Received(address,address,uint256,bytes)")
             );
     }
-<<<<<<< HEAD
 
     receive() external payable {}
-=======
->>>>>>> 31ca9d6e1fdd3b6da7a5911f8fef26c67bed35b4
 }
