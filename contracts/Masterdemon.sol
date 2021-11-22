@@ -104,15 +104,13 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     /*-------------------------------Main external functions-------------------------------*/
 
-    function stake(uint256 _cid, uint256 _id) external {
-        sendFee(devAddress, collectionInfo[_cid].stakingFee);
-        _stake(msg.sender, _cid, _id);
+    function stake(uint256 _cid, uint256 _id) external payable {
+        _stake(msg.sender, _cid, _id, msg.value);
     }
 
-    function batchStake(uint256 _cid, uint256[] memory _ids) external {
-        sendFee(devAddress, collectionInfo[_cid].stakingFee);
+    function batchStake(uint256 _cid, uint256[] memory _ids) external payable {
         for (uint256 i = 0; i < _ids.length; ++i) {
-            _stake(msg.sender, _cid, _ids[i]);
+            _stake(msg.sender, _cid, _ids[i], msg.value);
         }
     }
 
@@ -145,10 +143,16 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     function _stake(
         address _user,
         uint256 _cid,
-        uint256 _id
+        uint256 _id,
+        uint256 _value
     ) internal {
         UserInfo storage user = userInfo[_user];
         CollectionInfo storage collection = collectionInfo[_cid];
+
+        require(
+            _value >= collection.stakingFee,
+            "Masterdemon._stake: Fee not paid"
+        );
 
         require(
             user.stakedTokens[collection.collectionAddress].length <
@@ -161,6 +165,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             address(this),
             _id
         );
+
+        sendFee(devAddress, _value);
 
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
             collection.amountOfStakers += 1;
