@@ -110,6 +110,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     function batchStake(uint256 _cid, uint256[] memory _ids) external {
+        sendFee(devAddress, collectionInfo[_cid].stakingFee);
         for (uint256 i = 0; i < _ids.length; ++i) {
             _stake(msg.sender, _cid, _ids[i]);
         }
