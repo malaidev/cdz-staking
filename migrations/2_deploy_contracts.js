@@ -2,7 +2,10 @@ const Masterdemon = artifacts.require("Masterdemon");
 const MockLLTH = artifacts.require("MockLLTH");
 const MockCollection = artifacts.require("MockCollection");
 const ArrayLib = artifacts.require("Array");
-const Harvest = artifacts.require("Harvest");
+
+const Harvest = artifacts.require("Harvest"); 
+
+
 
 module.exports = async (deployer) => {
     
@@ -13,4 +16,5 @@ module.exports = async (deployer) => {
         deployer.deploy(Harvest, res.address);
     })
     await deployer.deploy(MockCollection);
+
 }

@@ -1,9 +1,8 @@
 
 
 const LLTH = artifacts.require("MockLLTH");
-
-
-const Harvest = artifacts.require("Harvest");
+const LinkHelper = artifacts.require('LinkHelper')
+const Harvest = artifacts.require("Harvest");  
 
 
 const { duration, increaseTimeTo } = require('./utils');
@@ -15,7 +14,7 @@ const expect = chai.expect;
 const truffleAssert = require('truffle-assertions');
 const { assert } = require('chai');
 
-const LinkHelper = require('LinkHelper')
+
 
 function epoch() {
     return Math.round(Date.now() / 1000);
@@ -32,7 +31,7 @@ contract("Harvest - Polygon", async accounts => {
 
         llth = await LLTH.deployed();
         harvest = await Harvest.deployed()
-        link = await LinkHelper.deployed()
+        
 
     });
 
@@ -40,11 +39,8 @@ contract("Harvest - Polygon", async accounts => {
     
     it('Can harvest a single token when sole staker in pool', async () => {
 
-        // sends smart contract LINK to cover oracle fee
-        await link.approveLink(link.address, web3.utils.toWei('0.01', 'ether'));
-        await link.sendLink(harvest.address, web3.utils.toWei('0.01', 'ether'));
-        console.log(await harvest.viewLinkBalance())
-        expect(await harvest.viewLinkBalance()).to.be.a.bignumber.equal(new BN(1e16)); // LLTH balance should be zero
+        
+        // send link to contract
 
         await harvest.setData(
             [1], // list of tokenId's
