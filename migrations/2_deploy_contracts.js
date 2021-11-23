@@ -3,7 +3,7 @@ const MockLLTH = artifacts.require("MockLLTH");
 const MockCollection = artifacts.require("MockCollection");
 const ArrayLib = artifacts.require("Array");
 
-const Harvest = artifacts.require("Harvest"); 
+const Harvester = artifacts.require("Harvester"); 
 
 
 
@@ -13,7 +13,7 @@ module.exports = async (deployer) => {
     await deployer.link(ArrayLib, [Masterdemon]);
     await deployer.deploy(MockLLTH).then(res => {
         deployer.deploy(Masterdemon, res.address)
-        deployer.deploy(Harvest, res.address);
+        deployer.deploy(Harvester, res.address);
     })
     await deployer.deploy(MockCollection);
 
