@@ -66,7 +66,7 @@ contract("Harvest - Polygon", async accounts => {
         }
         await timeout(30000); 
 
-        // reward = (multiplier*daysStaked*rarity)/numberOfStakers = (1*1*100)/1 = 100
+        // reward = numberOfTokens*(multiplier*daysStaked*rarity)/numberOfStakers = 3*(1*1*100)/1 = 300
         expect(await llth.balanceOf(accounts[1])).to.be.a.bignumber.equal(new BN(300)); // LLTH balance should = reward
     });
 

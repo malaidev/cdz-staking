@@ -261,7 +261,8 @@ contract Harvester is Ownable, ChainlinkClient {
      */
     function resetHarvest(address _user, address _collection) public onlyOwner {
         bytes32 hash = bytes32(abi.encodePacked(_user, _collection));
-        tokensLeftToHarvest[hash] == 0;
+        tokensLeftToHarvest[hash] = 0;
+        pendingBalance[hash] = 0;
     }
 
     /**
