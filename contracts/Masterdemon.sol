@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./mocks/MockLLTH.sol";
 import "./libs/Array.sol";
 
 contract Masterdemon is Ownable, ReentrancyGuard {
@@ -65,6 +64,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 maturityPeriod;
         uint256 amountOfStakers;
         uint256 stakingLimit;
+        uint256 harvestCooldown;
     }
 
     /**
@@ -89,17 +89,11 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     CollectionInfo[] public collectionInfo;
 
     /**
-     *   @notice Lilith token
-     */
-    MockLLTH public llth;
-
-    /**
      *   @notice dev address for fees
      */
     address payable devAddress;
 
-    constructor(MockLLTH _llth) public {
-        llth = _llth;
+    constructor() public {
     }
 
     /*-------------------------------Main external functions-------------------------------*/
@@ -253,7 +247,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _stakingLimit
+        uint256 _stakingLimit,
+        uint256 _harvestCooldown
     ) public onlyOwner {
         collectionInfo.push(
             CollectionInfo({
@@ -264,7 +259,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 multiplier: _multiplier,
                 maturityPeriod: _maturityPeriod,
                 amountOfStakers: 0,
-                stakingLimit: _stakingLimit
+                stakingLimit: _stakingLimit,
+                harvestCooldown: _harvestCooldown
             })
         );
     }
@@ -281,7 +277,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _harvestingFee,
         uint256 _multiplier,
         uint256 _maturityPeriod,
-        uint256 _stakingLimit
+        uint256 _stakingLimit,
+        uint256 _harvestCooldown
     ) public onlyOwner {
         CollectionInfo memory collection = collectionInfo[_cid];
         collection.isStakable = _isStakable;
@@ -291,6 +288,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collection.multiplier = _multiplier;
         collection.maturityPeriod = _maturityPeriod;
         collection.stakingLimit = _stakingLimit;
+        collection.harvestCooldown = _harvestCooldown;
     }
 
     /**
@@ -356,6 +354,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             uint256,
             uint256,
             uint256,
+            uint256,
             uint256
         )
     {
@@ -367,7 +366,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             collection.multiplier,
             collection.maturityPeriod,
             collection.amountOfStakers,
-            collection.stakingLimit
+            collection.stakingLimit,
+            collection.harvestCooldown
         );
     }
 

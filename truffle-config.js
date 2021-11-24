@@ -20,6 +20,8 @@
 
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 require('dotenv').config();
+const fs = require('fs');
+const mnemonic = fs.readFileSync(".secret").toString().trim();
 
 //
 // const fs = require('fs');
@@ -73,6 +75,16 @@ module.exports = {
     // network_id: 2111,   // This network is yours, in the cloud.
     // production: true    // Treats this network as if it was a public net. (default: false)
     // }
+
+    // using bsc testnet because all ethereum testnet faucets are broken
+    testnet: {
+      provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-1-s2.binance.org:8545`),
+      network_id: 97,
+      confirmations: 10,
+      timeoutBlocks: 200,
+      networkCheckTimeout: 100000000,
+      skipDryRun: true
+    }
   },
 
   // Set default mocha options here, use special reporters etc.
@@ -114,5 +126,13 @@ module.exports = {
     //     directory: ".db"
     //   }
     // }
+  // }
+
+  // plugins: [
+  //   'truffle-plugin-verify'
+  // ],
+
+  // api_keys: {
+  //   etherscan: 'MY_API_KEY'
   // }
 };

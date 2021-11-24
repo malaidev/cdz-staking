@@ -22,6 +22,7 @@ contract Harvest is Ownable, ChainlinkClient {
         uint256 stakingTimestamp;
         uint256 multiplier;
         uint256 amountOfStakers;
+        uint256 harvestCooldown;
         address user;
         address collection;
         bool isStakable;
@@ -38,8 +39,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
     uint256 public rarity; // TEST PURPOSES ONLY
 
-    string public apiURL =
-        "https://api.lilithswap.com/rand"; 
+    string public apiURL = "https://api.lilithswap.com/rand";
     address private oracle;
     bytes32 private jobId;
     uint256 private oracleFee;
@@ -70,21 +70,16 @@ contract Harvest is Ownable, ChainlinkClient {
 
     mapping(bytes32 => uint256) pendingBalance;
 
-
-
-
-    
-
     function setData(
         uint256[] memory _tokens,
         uint256 _stakingTimestamp,
         uint256 _multiplier,
         uint256 _amountOfStakers,
+        uint256 _harvestCooldown,
         address _user,
         address _collection,
         bool _isStakable
     ) public onlyOwner {
-
         bytes32 hash = bytes32(abi.encodePacked(_user, _collection));
 
         dataMap[hash] = Data(
@@ -92,6 +87,7 @@ contract Harvest is Ownable, ChainlinkClient {
             _stakingTimestamp,
             _multiplier,
             _amountOfStakers,
+            _harvestCooldown,
             _user,
             _collection,
             _isStakable
@@ -99,10 +95,15 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     function harvest(address _collection) public payable {
-
         bytes32 hash = bytes32(abi.encodePacked(msg.sender, _collection));
 
         Data memory data = dataMap[hash];
+
+        require(
+            ((block.timestamp - data.stakingTimestamp) / 60 / 60 / 24) >=
+                data.harvestCooldown,
+            "Harvest.harvest: You are on cooldown"
+        );
 
         require(msg.value >= fee, "Harvest.harvest: Cover fee");
         require(
@@ -130,9 +131,7 @@ contract Harvest is Ownable, ChainlinkClient {
             _getRarity(data.user, data.collection, data.tokens[x]);
         }
 
-        
         sendFee(devAddress, msg.value);
-        
     }
 
     /**
@@ -171,13 +170,11 @@ contract Harvest is Ownable, ChainlinkClient {
     {
         require(idToHarvestInfo[_requestId].liveOracleCall);
         idToHarvestInfo[_requestId].liveOracleCall = false;
-        
-        
+
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         _rarity = 100; // TEST PURPOSES ONLY
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-        
+
         address user = idToHarvestInfo[_requestId].userAddress;
         address collection = idToHarvestInfo[_requestId].collection;
 
@@ -185,7 +182,8 @@ contract Harvest is Ownable, ChainlinkClient {
 
         Data memory data = dataMap[hash];
 
-        uint daysStaked = (block.timestamp - data.stakingTimestamp) / (24*60*60);
+        uint256 daysStaked = (block.timestamp - data.stakingTimestamp) /
+            (24 * 60 * 60);
 
         uint256 reward = _getReward(
             _rarity,
@@ -200,7 +198,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
         if (tokensLeftToHarvest[hash] == 0) {
             // if all NFT rewards of a user's collection have been calculated then transfer tokens
-            llth.mint(user, pendingBalance[hash]);
+            llth.mint(user, pendingBalance[hash] * (10**18));
             pendingBalance[hash] = 0;
         }
     }
@@ -249,8 +247,6 @@ contract Harvest is Ownable, ChainlinkClient {
         oracleFee = _oracleFee;
     }
 
-    
-
     /**
      * @dev Withdraw all LINK tokens from smart contract to address '_to'
      */
@@ -262,12 +258,10 @@ contract Harvest is Ownable, ChainlinkClient {
     /**
      * @dev View LINK token balance of smart contract
      */
-    function viewLinkBalance() public returns(uint) {
+    function viewLinkBalance() public returns (uint256) {
         LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
         return LINK.balanceOf(address(this));
     }
 
     receive() external payable {}
-
-    
 }
