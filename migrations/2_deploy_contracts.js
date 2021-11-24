@@ -3,7 +3,7 @@ const MockLLTH = artifacts.require("MockLLTH");
 const MockCollection = artifacts.require("MockCollection");
 const ArrayLib = artifacts.require("Array");
 
-const Harvest = artifacts.require("Harvest"); 
+const Harvester = artifacts.require("Harvester"); 
 
 
 
