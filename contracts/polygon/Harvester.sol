@@ -1,3 +1,31 @@
+/*
+
+## TO DO - BEFORE PRODUCTION DEPLOYMENT ##
+
+
+Connect llth variable to xLLTH interface 
+(https://github.com/Cryptodemonz-Github/llth-bridge-fxportal-smart-contracts/blob/main/contracts/tokens/IFxERC20.sol)
+
+
+Remove mockLLTH import statement
+
+
+Change Chainlink oracle params to main net:
+- Link token address
+- oracle addres
+- job ID
+- fee
+(https://market.link/jobs/56666c3e-534d-490f-8757-521928739291)
+
+
+Test API URL upon it's completion and incorperate concatenation code for collection address and tokenId
+
+
+Remove test line '_rarity = 100' from fulfill() callback function
+
+*/
+
+
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.7;
@@ -37,9 +65,8 @@ contract Harvest is Ownable, ChainlinkClient {
     uint256 private fee;
     address payable devAddress;
 
-    uint256 public rarity; // TEST PURPOSES ONLY
-
     string public apiURL = "https://api.lilithswap.com/rand";
+
     address private oracle;
     bytes32 private jobId;
     uint256 private oracleFee;
@@ -119,8 +146,10 @@ contract Harvest is Ownable, ChainlinkClient {
             "Harvest.harvest: You can't harvest, if pool is empty"
         );
 
-        // TO DO: adjust to handle the instance where fulfill callback never called
-        require(tokensLeftToHarvest[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst fulfill() callback calls are still ongoing
+        require( // stops users harvesting again whilst fulfill() callback calls are still ongoing
+            tokensLeftToHarvest[hash] == 0,
+            "Harvest already in progress"
+        ); 
 
         // stores uint of how many tokens to get rarity score of. Accessed in fulfill() callback function
         tokensLeftToHarvest[hash] = data.tokens.length;
@@ -215,7 +244,7 @@ contract Harvest is Ownable, ChainlinkClient {
     ) internal pure returns (uint256) {
         uint256 baseMultiplier = _multiplier * _daysStaked;
         uint256 basemultiplierxRarity = baseMultiplier * _rarity;
-        uint256 finalReward = basemultiplierxRarity / _amountOfStakers; // possible losses here due to solidity rounding down
+        uint256 finalReward = basemultiplierxRarity / _amountOfStakers; 
 
         return finalReward;
     }
