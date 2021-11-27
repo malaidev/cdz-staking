@@ -91,12 +91,14 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /*-------------------------------Main external functions-------------------------------*/
 
     function stake(uint256 _cid, uint256 _id) external payable {
-        _stake(msg.sender, _cid, _id, msg.value);
+        require(msg.value >= collectionInfo[_cid].stakingFee, "Masterdemon.stake: Fee");
+        _stake(msg.sender, _cid, _id);
     }
 
     function batchStake(uint256 _cid, uint256[] memory _ids) external payable {
         for (uint256 i = 0; i < _ids.length; ++i) {
-            _stake(msg.sender, _cid, _ids[i], msg.value);
+            require(msg.value >= collectionInfo[_cid].stakingFee, "Masterdemon.stake: Fee");
+            _stake(msg.sender, _cid, _ids[i]);
         }
     }
 
@@ -129,16 +131,10 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     function _stake(
         address _user,
         uint256 _cid,
-        uint256 _id,
-        uint256 _value
+        uint256 _id
     ) internal {
         UserInfo storage user = userInfo[_user];
         CollectionInfo storage collection = collectionInfo[_cid];
-
-        require(
-            _value >= collection.stakingFee,
-            "Masterdemon._stake: Fee not paid"
-        );
 
         require(
             user.stakedTokens[collection.collectionAddress].length <
@@ -151,8 +147,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             address(this),
             _id
         );
-
-        sendFee(devAddress, _value);
 
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
             collection.amountOfStakers += 1;
@@ -373,14 +367,4 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     receive() external payable {}
-
-    /**
-        @notice safer way to send ethereum, will revert on fail
-        @param _to => dev address in our case
-        @param _value => how much ethereum
-     */
-    function sendFee(address payable _to, uint256 _value) public payable {
-        (bool sent, bytes memory data) = _to.call{ value: _value }("");
-        require(sent, "Harvest.sendFee: Failed to send fee");
-    }
 }

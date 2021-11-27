@@ -1,152 +1,72 @@
-const LLTH = artifacts.require('MockLLTH');
 const Collection = artifacts.require('MockCollection');
 const Masterdemon = artifacts.require('Masterdemon');
-
 const { assert } = require('chai');
 const truffleAssert = require('truffle-assertions');
+const Web3 = require('web3');
+
 
 contract(
-  'Masterdemon - Staking/Unstaking basic, non-error testing',
-  async (accounts) => {
-    let llth;
-    let collection;
-    let masterdemon;
+    "Masterdemon - Main tests",
+    async (accounts) => {
+        let masterdemon;
+        let collection;
+        
+        beforeEach(async () => {
+            masterdemon = await Masterdemon.new();
+            collection = await Collection.new();
 
-    beforeEach(async () => {
-      llth = await LLTH.new();
-      collection = await Collection.new();
-      masterdemon = await Masterdemon.new(llth.address)
+            web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:9545"));
 
-      // _id = 0
-      collection.mint(4, accounts[0]);
+            collection.mint(10, accounts[0]);
+            collection.mint(10, accounts[2]);
+            masterdemon.setDev(accounts[1]);
 
-      // _cid = 0
-      masterdemon.setCollection(
-        true, // isStakable
-        collection.address, // collectionAddress
-        1, // stakingFee
-        1, // harvestingFee
-        2, // multiplier
-        0, // maturityPeriod
-        20, // stakingLimit
-      );
-    });
+            masterdemon.setCollection(
+                true,
+                collection.address,
+                web3.utils.toWei("0.01", "ether"),
+                0,
+                10,
+                50,
+                7
+            );
+        });
 
-    it('[ Masterdemon, LLTH, Collection] Should deploy', async () => {
-      assert(llth.address != '');
-      assert(collection.address != '');
-      assert(masterdemon.address != '');
-    });
+        it("[Masterdemon, collection] Should deploy", async () => {
+            assert(collection.address != '');
+            assert(masterdemon.address != '');
+        });
 
-    it('[ Masterdemon ] Should Allow Single Staking', async () => {
-      let amountStaked;
-      await collection.setApprovalForAll(masterdemon.address, true);
-      await masterdemon.stake(0, 0, { from: accounts[0] });
-      await masterdemon.unstake(0, 0, { from: accounts[0] })
-      await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res;
-      });
+        it("[Masterdemon] General Staking Test", async () => {
+            let balanceBefore;
+            let balanceAfter;
+            await collection.setApprovalForAll(masterdemon.address, true);
+            await web3.eth.getBalance(masterdemon.address).then(res => balanceBefore = web3.utils.fromWei(res, "ether"));
+            await masterdemon.stake(0, 0, { from: accounts[0], value: web3.utils.toWei("0.01", "ether") });
+            await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0], value: web3.utils.toWei("0.03", "ether")});
+            await web3.eth.getBalance(masterdemon.address).then(res => balanceAfter = web3.utils.fromWei(res, "ether"));
+            assert.equal(Number((balanceAfter - balanceBefore).toFixed(2)), 0.04)
 
-      assert.equal(amountStaked.words[0], 0);
-    });
+            let stakedAmount;
+            await masterdemon.getUserInfo(accounts[0], collection.address).then(res => {
+                stakedAmount = res['2'].words[0];
+            })
+            assert.equal(stakedAmount, 4);
+        });
 
-    it('[ Masterdemon ] Should Allow Batch Staking', async () => {
-      let amountStaked;
-      await collection.setApprovalForAll(masterdemon.address, true);
-      await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0] });
-      await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res;
-      });
+        it("[Masterdemon] General Unstaking Test", async () => {
+            let amountOfStakers;
+            await collection.setApprovalForAll(masterdemon.address, true, { from: accounts[0] });
+            await masterdemon.batchStake(0, [1, 2, 3, 4, 5], { from: accounts[0], value: web3.utils.toWei("0.05", "ether")});
+            await collection.setApprovalForAll(masterdemon.address, true, { from: accounts[2] });
+            await masterdemon.batchStake(0, [10, 11, 12], { from: accounts[2], value: web3.utils.toWei("0.05", "ether")});
 
-      assert.equal(amountStaked.words[0], 3);
-    });
+            await masterdemon.getCollectionInfo(0).then(res => {
+                amountOfStakers = res['4'].words[0];
+            })
 
-    it('[ Masterdemon ] Should Allow Unstaking', async () => {
-      let amountStaked;
-      await collection.setApprovalForAll(masterdemon.address, true);
-      await masterdemon.stake(0, 0, { from: accounts[0] });
-      await masterdemon.unstake(0, 0, { from: accounts[0] });
-      await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res;
-      });
+            assert.equal(amountOfStakers, 2);
 
-      assert.equal(amountStaked.words[0], 0);
-    });
-
-    it('[ Masterdemon ] Should Allow Batch Unstaking', async () => {
-      let amountStaked;
-      await collection.setApprovalForAll(masterdemon.address, true);
-      await masterdemon.batchStake(0, [1, 2, 3], { from: accounts[0] });
-      await masterdemon.batchUnstake(0, [1, 2, 3], { from: accounts[0] });
-      await masterdemon.getUser(accounts[0], collection.address).then((res) => {
-        amountStaked = res;
-      });
-
-      assert.equal(amountStaked.words[0], 0);
-    });
-  },
-);
-
-contract(
-  'Masterdemon => Staking/Unstaking advanced, error testing',
-  async (accounts) => {
-    let llth;
-    let collection;
-    let masterdemon;
-
-    beforeEach(async () => {
-      llth = await LLTH.new();
-      collection = await Collection.new();
-      masterdemon = await Masterdemon.new(llth.address)
-
-      // _id = 0
-      collection.mint(2, accounts[0]);
-      collection.mint(1, accounts[1]);
-
-      // _cid = 0
-      masterdemon.setCollection(
-        true, // isStakable
-        collection.address, // collectionAddress
-        1, // stakingFee
-        1, // harvestingFee
-        2, // multiplier
-        0, // maturityPeriod
-        20, // stakingLimit
-      );
-    });
-
-    it(" [ Masterdemon advanced ] Shouldn't Unstake For Non-Owner", async () => {
-      await collection.setApprovalForAll(masterdemon.address, true);
-      await masterdemon.stake(0, 0, { from: accounts[0] });
-
-      await truffleAssert.fails(
-        masterdemon.unstake(0, 0, { from: accounts[1] }),
-        truffleAssert.ErrorType.REVERT,
-        "Masterdemon._unstake: Sender doesn't owns this token",
-      );
-    });
-
-
-    it(' [ Masterdemon advanced ] Should Calculate amountOfStakers Correctly', async () => {
-        let amountOfStakers;
-
-        await collection.setApprovalForAll(masterdemon.address, true, { from: accounts[0] });
-        await collection.setApprovalForAll(masterdemon.address, true, { from: accounts[1] });
-
-        await masterdemon.stake(0, 0, { from: accounts[0] });
-        await masterdemon.stake(0, 1, { from: accounts[0] });
-        await masterdemon.stake(0, 2, { from: accounts[1] });
-        await masterdemon.getCollectionInfo(0).then(res => amountOfStakers = res.words[0]);
-        assert.equal(amountOfStakers, 2);
-
-        await masterdemon.unstake(0, 0, { from: accounts[0] });
-        await masterdemon.getCollectionInfo(0).then(res => amountOfStakers = res.words[0]);
-        assert.equal(amountOfStakers, 2);
-
-        await masterdemon.unstake(0, 1, { from: accounts[0] });
-        await masterdemon.getCollectionInfo(0).then(res => amountOfStakers = res.words[0]);
-        assert.equal(amountOfStakers, 1);
-
-    });
-  },
-);
+        })
+    }
+)
