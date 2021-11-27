@@ -61,7 +61,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 stakingFee;
         uint256 harvestingFee;
         uint256 multiplier;
-        uint256 maturityPeriod;
         uint256 amountOfStakers;
         uint256 stakingLimit;
         uint256 harvestCooldown;
@@ -78,12 +77,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     mapping(address => mapping(uint256 => address)) public tokenOwners;
 
     /**
-     *   @notice collection address => nft rarities where index = nft id
-     *   @dev extremely heavy array warning, traversing is suicide!
-     */
-    mapping(address => uint256[]) public tokenRarities;
-
-    /**
      *   @notice array of each collection, we search through this by _cid (collection identifier)
      */
     CollectionInfo[] public collectionInfo;
@@ -93,8 +86,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
      */
     address payable devAddress;
 
-    constructor() public {
-    }
+    constructor() {}
 
     /*-------------------------------Main external functions-------------------------------*/
 
@@ -121,18 +113,18 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /*-------------------------------Main internal functions-------------------------------*/
 
     /**
-    *    @notice internal stake function, called in external stake and batchStake
-    *    @param _user => msg.sender
-    *    @param _cid => collection id, to get correct one from array
-    *    @param _id => nft id
-    *
-    *    - First we have to check if user reached the staking limitation.
-    *    - We transfer their NFT to contract
-    *    - If user never staked here before, we increment amountOfStakers
-    *    - increment amountStaked by 1
-    *    - Start tracking of daysStaked with stakedTimestamp
-    *    - populate stakedTokens mapping
-    *    - populate tokenOwners double mapping with user's address
+     *    @notice internal stake function, called in external stake and batchStake
+     *    @param _user => msg.sender
+     *    @param _cid => collection id, to get correct one from array
+     *    @param _id => nft id
+     *
+     *    - First we have to check if user reached the staking limitation.
+     *    - We transfer their NFT to contract
+     *    - If user never staked here before, we increment amountOfStakers
+     *    - increment amountStaked by 1
+     *    - Start tracking of daysStaked with stakedTimestamp
+     *    - populate stakedTokens mapping
+     *    - populate tokenOwners double mapping with user's address
      */
     function _stake(
         address _user,
@@ -213,7 +205,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             collection.amountOfStakers -= 1;
         }
 
-        // delete will leave 0x000...000
         delete tokenOwners[collection.collectionAddress][_id];
 
         user.timeStaked[collection.collectionAddress] = 0;
@@ -222,16 +213,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (user.amountStaked == 0) {
             delete userInfo[_user];
         }
-    }
 
-    /**
-        @notice safer way to send ethereum, will revert on fail
-        @param _to => dev address in our case
-        @param _value => how much ethereum
-     */
-    function sendFee(address payable _to, uint256 _value) public payable {
-        (bool sent, bytes memory data) = _to.call{ value: _value }("");
-        require(sent, "Harvest.sendFee: Failed to send fee");
     }
 
     /*-------------------------------Admin functions-------------------------------*/
@@ -246,7 +228,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _stakingFee,
         uint256 _harvestingFee,
         uint256 _multiplier,
-        uint256 _maturityPeriod,
         uint256 _stakingLimit,
         uint256 _harvestCooldown
     ) public onlyOwner {
@@ -257,7 +238,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
                 stakingFee: _stakingFee,
                 harvestingFee: _harvestingFee,
                 multiplier: _multiplier,
-                maturityPeriod: _maturityPeriod,
                 amountOfStakers: 0,
                 stakingLimit: _stakingLimit,
                 harvestCooldown: _harvestCooldown
@@ -276,17 +256,15 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         uint256 _stakingFee,
         uint256 _harvestingFee,
         uint256 _multiplier,
-        uint256 _maturityPeriod,
         uint256 _stakingLimit,
         uint256 _harvestCooldown
     ) public onlyOwner {
-        CollectionInfo memory collection = collectionInfo[_cid];
+        CollectionInfo storage collection = collectionInfo[_cid];
         collection.isStakable = _isStakable;
         collection.collectionAddress = _collectionAddress;
         collection.stakingFee = _stakingFee;
         collection.harvestingFee = _harvestingFee;
         collection.multiplier = _multiplier;
-        collection.maturityPeriod = _maturityPeriod;
         collection.stakingLimit = _stakingLimit;
         collection.harvestCooldown = _harvestCooldown;
     }
@@ -297,8 +275,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
      *    @param _isStakable => enable/disable
      */
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
-        CollectionInfo memory collection = collectionInfo[_cid];
-        collection.isStakable = _isStakable;
+        collectionInfo[_cid].isStakable = _isStakable;
     }
 
     /**
@@ -311,9 +288,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             "Masterdemon.emergencyStop: Please provide the correct pin"
         );
         for (uint256 i = 0; i < collectionInfo.length; ++i) {
-            CollectionInfo memory collection = collectionInfo[i];
-            if (collection.isStakable = true) {
-                collection.isStakable = false;
+            if (collectionInfo[i].isStakable = true) {
+                collectionInfo[i].isStakable = false;
             }
         }
     }
@@ -354,7 +330,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             uint256,
             uint256,
             uint256,
-            uint256,
             uint256
         )
     {
@@ -364,11 +339,23 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             collection.collectionAddress,
             collection.harvestingFee,
             collection.multiplier,
-            collection.maturityPeriod,
             collection.amountOfStakers,
             collection.stakingLimit,
             collection.harvestCooldown
         );
+    }
+
+    function didUserStaked(address _user, address _collection)
+        public
+        view
+        returns (bool)
+    {
+        UserInfo storage user = userInfo[_user];
+        if (user.stakedTokens[_collection].length != 0) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /*-------------------------------Misc-------------------------------*/
@@ -386,4 +373,14 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     receive() external payable {}
+
+    /**
+        @notice safer way to send ethereum, will revert on fail
+        @param _to => dev address in our case
+        @param _value => how much ethereum
+     */
+    function sendFee(address payable _to, uint256 _value) public payable {
+        (bool sent, bytes memory data) = _to.call{ value: _value }("");
+        require(sent, "Harvest.sendFee: Failed to send fee");
+    }
 }
