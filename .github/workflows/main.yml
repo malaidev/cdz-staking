@@ -18,5 +18,3 @@ jobs:
           node-version: 14
       - run: npm install 
       - run: npx truffle compile
-      - run: npx truffle dev
-      - run: npx truffle test test/1_masterdemon_test.js
