@@ -97,7 +97,7 @@ contract Harvest is Ownable, ChainlinkClient {
     function harvest(address _collection) public payable {
         bytes32 hash = bytes32(abi.encodePacked(msg.sender, _collection));
 
-        Data memory data = dataMap[hash];
+        Data storage data = dataMap[hash];
 
         require(
             ((block.timestamp - data.stakingTimestamp) / 60 / 60 / 24) >=
@@ -180,7 +180,7 @@ contract Harvest is Ownable, ChainlinkClient {
 
         bytes32 hash = bytes32(abi.encodePacked(user, collection));
 
-        Data memory data = dataMap[hash];
+        Data storage data = dataMap[hash];
 
         uint256 daysStaked = (block.timestamp - data.stakingTimestamp) /
             (24 * 60 * 60);
