@@ -272,22 +272,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collectionInfo[_cid].isStakable = _isStakable;
     }
 
-    /**
-     *    @notice stop every single collection, BE CAREFUL
-     *    @param _confirmationPin => dummy pin to avoid "missclicking"
-     */
-    function emergencyStop(uint256 _confirmationPin) public onlyOwner {
-        require(
-            _confirmationPin == 666,
-            "Masterdemon.emergencyStop: Please provide the correct pin"
-        );
-        for (uint256 i = 0; i < collectionInfo.length; ++i) {
-            if (collectionInfo[i].isStakable = true) {
-                collectionInfo[i].isStakable = false;
-            }
-        }
-    }
-
     function setDev(address payable _newDev) public onlyOwner {
         require(devAddress != _newDev, "Masterdemon.setDev: Value already set");
         devAddress = _newDev;
