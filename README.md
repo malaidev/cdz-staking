@@ -12,7 +12,7 @@ this ecosystem profitable for our users.
 
 To sum up, any project with limited AND FULLY MINTED supply (preferably between 10k-20k tokens) will be able to request
 place in our platform, incentivising their community and possibly developing their own, better contracts based on our code,
-which is under **GPL V3 license, thus any commercial or private use MUST comply with certain requirements, such as:
+which is under **MIT license, thus any commercial or private use MUST comply with certain requirements, such as:
 copyright notice**
 
 ## Yield Farming
