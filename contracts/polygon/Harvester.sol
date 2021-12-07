@@ -1,29 +1,22 @@
 /*
 
-## TO DO - BEFORE PRODUCTION DEPLOYMENT ##
+### TO DO - BEFORE PRODUCTION DEPLOYMENT ###
 
 
-Connect llth variable to xLLTH interface 
-(https://github.com/Cryptodemonz-Github/llth-bridge-fxportal-smart-contracts/blob/main/contracts/tokens/IFxERC20.sol)
-
-
-Remove mockLLTH import statement
-
-
-Change Chainlink oracle params to main net:
-- Link token address
-- oracle addres
-- job ID
-- fee
+Change Chainlink oracle params to Polygon main net:
+- Link token address (0xb0897686c545045afc77cf20ec7a532e3120e0f1)
+- oracle addres (0x0a31078cD57d23bf9e8e8F1BA78356ca2090569E)
+- job ID (12b86114fa9e46bab3ca436f88e1a912)
+- fee (0.01 LINK)
 (https://market.link/jobs/56666c3e-534d-490f-8757-521928739291)
 
 
-Test API URL upon it's completion and incorperate concatenation code for collection address and tokenId
-
-
-Remove test line '_rarity = 100' from fulfill() callback function
+Remove testSetData() function from bottom
 
 */
+
+
+
 
 
 // SPDX-License-Identifier: MIT
@@ -34,24 +27,30 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 
-import "../mocks/MockLLTH.sol";
+import "../mocks/IxLLTH.sol";
+
 
 contract Harvest is Ownable, ChainlinkClient {
+    
     /**
-        @notice Lilith token
+        @notice xLLTH token
      */
-    MockLLTH public llth;
+    IxLLTH public xLLTH;
 
     using Address for address;
     using Chainlink for Chainlink.Request;
 
-    struct Data {
+    struct UserData {
         uint256[] tokens;
         uint256 stakingTimestamp;
+        address user;
+        address collection;
+    }
+
+    struct CollectionData {
         uint256 multiplier;
         uint256 amountOfStakers;
         uint256 harvestCooldown;
-        address user;
         address collection;
         bool isStakable;
     }
@@ -65,11 +64,12 @@ contract Harvest is Ownable, ChainlinkClient {
     uint256 private fee;
     address payable devAddress;
 
-    string public apiURL = "https://api.lilithswap.com/rand";
+    string public apiUrlBase = "http://cdz-express-api-testing.herokuapp.com/"; // Example: http://localhost:3000/
 
     address private oracle;
     bytes32 private jobId;
     uint256 private oracleFee;
+
 
     /**
      * GET => uint oracle
@@ -78,18 +78,25 @@ contract Harvest is Ownable, ChainlinkClient {
      *
      * Network: Polygon Mumbai TESTNET
      */
-    constructor(MockLLTH _llth) {
-        llth = _llth; // sets address of LLTH token
+    constructor(address xLLTHaddress) {
 
-        // LINK token address on Polygon Mumbai testnet ONLY (Change to main net address before production deployment)
-        setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB);
+        xLLTH = IxLLTH(xLLTHaddress);
 
+        // GET => uint oracle
         oracle = 0xc8D925525CA8759812d0c299B90247917d4d4b7C; // Polygon Mumbai testnet ONLY
         jobId = "bbf0badad29d49dc887504bacfbb905b"; // // Polygon Mumbai testnet ONLY
         oracleFee = 0.01 * 10**18; // (Varies by network and job)
+
+        // LINK token address on Polygon Mumbai testnet ONLY
+        setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB); // Polygon Mumbai testnet ONLY
     }
 
-    mapping(bytes32 => Data) dataMap;
+
+    // --- MAPPINGS ---
+
+    mapping(bytes32 => UserData) userDataMap;
+
+    mapping(address => CollectionData) collectionDataMap;
 
     mapping(bytes32 => HarvestInfo) idToHarvestInfo;
 
@@ -97,52 +104,40 @@ contract Harvest is Ownable, ChainlinkClient {
 
     mapping(bytes32 => uint256) pendingBalance;
 
-    function setData(
-        uint256[] memory _tokens,
-        uint256 _stakingTimestamp,
-        uint256 _multiplier,
-        uint256 _amountOfStakers,
-        uint256 _harvestCooldown,
-        address _user,
-        address _collection,
-        bool _isStakable
-    ) public onlyOwner {
-        bytes32 hash = bytes32(abi.encodePacked(_user, _collection));
 
-        dataMap[hash] = Data(
-            _tokens,
-            _stakingTimestamp,
-            _multiplier,
-            _amountOfStakers,
-            _harvestCooldown,
-            _user,
-            _collection,
-            _isStakable
-        );
-    }
+    // only LINK tokens can be withdrawn
+    receive() external payable {}
+
+
+    // --- PUBLIC FUNCTIONS ---
 
     function harvest(address _collection) public payable {
-        bytes32 hash = bytes32(abi.encodePacked(msg.sender, _collection));
+        bytes32 hash = keccak256(abi.encodePacked(msg.sender, _collection));
 
-        Data storage data = dataMap[hash];
+        UserData storage userData = userDataMap[hash];
+        CollectionData storage collectionData = collectionDataMap[_collection];
 
         require(
-            ((block.timestamp - data.stakingTimestamp) / 60 / 60 / 24) >=
-                data.harvestCooldown,
+            ((block.timestamp - userData.stakingTimestamp) / 60 / 60 / 24) >=
+                collectionData.harvestCooldown,
             "Harvest.harvest: You are on cooldown"
         );
 
-        require(msg.value >= fee, "Harvest.harvest: Cover fee");
         require(
-            data.user == msg.sender,
+            msg.value >= fee,
+            "Harvest.harvest: Cover fee"
+        );
+
+        require(
+            userData.user == msg.sender,
             "Harvest.harvest: Tempered user address"
         );
         require(
-            data.isStakable == true,
+            collectionData.isStakable == true,
             "Harvest.harvest: Staking isn't available in given pool"
         );
         require(
-            data.amountOfStakers != 0,
+            collectionData.amountOfStakers != 0,
             "Harvest.harvest: You can't harvest, if pool is empty"
         );
 
@@ -152,15 +147,15 @@ contract Harvest is Ownable, ChainlinkClient {
         ); 
 
         // stores uint of how many tokens to get rarity score of. Accessed in fulfill() callback function
-        tokensLeftToHarvest[hash] = data.tokens.length;
+        tokensLeftToHarvest[hash] = userData.tokens.length;
 
         sendFee(devAddress, msg.value);
 
-        for (uint256 x; x < data.tokens.length; ++x) {
-            _getRarity(data.user, data.collection, data.tokens[x]);
+        for (uint256 x; x < userData.tokens.length; ++x) {
+
+            _getRarity(userData.user, userData.collection, userData.tokens[x]);
+
         }
-
-        sendFee(devAddress, msg.value);
     }
 
     /**
@@ -170,15 +165,18 @@ contract Harvest is Ownable, ChainlinkClient {
         address _user,
         address _collection,
         uint256 _tokenId
-    ) public {
+    ) internal {
         Chainlink.Request memory request = buildChainlinkRequest(
             jobId,
             address(this),
             this.fulfill.selector
         );
 
+
+        string memory fullURL = returnFullURL(_collection, _tokenId);
+
         // Set the URL to perform the GET request on
-        request.add("get", apiURL);
+        request.add("get", fullURL); 
 
         // Sends the request
         bytes32 requestId = sendChainlinkRequestTo(oracle, request, oracleFee);
@@ -197,28 +195,26 @@ contract Harvest is Ownable, ChainlinkClient {
         public
         recordChainlinkFulfillment(_requestId)
     {
+        require(msg.sender == oracle);
         require(idToHarvestInfo[_requestId].liveOracleCall);
         idToHarvestInfo[_requestId].liveOracleCall = false;
-
-        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        _rarity = 100; // TEST PURPOSES ONLY
-        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         address user = idToHarvestInfo[_requestId].userAddress;
         address collection = idToHarvestInfo[_requestId].collection;
 
-        bytes32 hash = bytes32(abi.encodePacked(user, collection));
+        bytes32 hash = keccak256(abi.encodePacked(user, collection));
 
-        Data storage data = dataMap[hash];
+        UserData storage userData = userDataMap[hash];
+        CollectionData storage collectionData = collectionDataMap[collection];
 
-        uint256 daysStaked = (block.timestamp - data.stakingTimestamp) /
+        uint256 daysStaked = (block.timestamp - userData.stakingTimestamp) /
             (24 * 60 * 60);
 
         uint256 reward = _getReward(
             _rarity,
             daysStaked,
-            data.multiplier,
-            data.amountOfStakers
+            collectionData.multiplier,
+            collectionData.amountOfStakers
         );
 
         pendingBalance[hash] += reward;
@@ -227,10 +223,96 @@ contract Harvest is Ownable, ChainlinkClient {
 
         if (tokensLeftToHarvest[hash] == 0) {
             // if all NFT rewards of a user's collection have been calculated then transfer tokens
-            llth.mint(user, pendingBalance[hash] * (10**18));
+            xLLTH.mintForGames(user, pendingBalance[hash] * (10**18));
             pendingBalance[hash] = 0;
         }
     }
+
+    function sendFee(address payable _to, uint256 _value) public payable {
+        (bool sent, bytes memory data) = _to.call{ value: _value }("");
+        require(sent, "Harvest.sendFee: Failed to send fee");
+    }
+    
+
+
+    // --- INTERNAL FUNCTIONS --- 
+
+
+    /**
+     *    @notice converts a uint to a string
+     *    @param _i => the uint to convet
+     */
+    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
+        if (_i == 0) {
+            return "0";
+        }
+        uint j = _i;
+        uint len;
+        while (j != 0) {
+            len++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(len);
+        uint k = len;
+        while (_i != 0) {
+            k = k-1;
+            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
+            bytes1 b1 = bytes1(temp);
+            bstr[k] = b1;
+            _i /= 10;
+        }
+        return string(bstr);
+    }
+
+    /**
+     *    @notice converts an address to a string
+     *    @param _address => the address to convet
+     */
+    function addressToString(address _address) internal pure returns(string memory) {
+        return toString(abi.encodePacked(_address));
+    }
+    
+    /**
+     *    @notice converts bytes to a string
+     *    @param data => the bytes to convet
+     */
+    function toString(bytes memory data) internal pure returns(string memory) {
+        bytes memory alphabet = "0123456789abcdef";
+
+        bytes memory str = new bytes(2 + data.length * 2);
+        str[0] = "0";
+        str[1] = "x";
+        for (uint i = 0; i < data.length; i++) {
+            str[2+i*2] = alphabet[uint(uint8(data[i] >> 4))];
+            str[3+i*2] = alphabet[uint(uint8(data[i] & 0x0f))];
+        }
+        return string(str);
+    }
+
+
+    // --- VIEW FUNCTIONS ---
+
+    /**
+     *    @notice builds full URL for API call
+     *    @param _collection => address of NFT collection
+     *    @param _tokenId => tokenId of token
+     */
+    function returnFullURL(address _collection, uint _tokenId) public view returns(string memory) {
+        string memory collectionAddress =  addressToString(_collection);
+        string memory tokenId = uint2str(_tokenId);
+        string memory fullURL = string(abi.encodePacked(apiUrlBase, "?address=", collectionAddress, "&id=", tokenId));
+        return fullURL;
+    }
+
+    /**
+     * @dev View LINK token balance of smart contract
+     */
+    function viewLinkBalance() public view returns (uint256) {
+        LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
+        return LINK.balanceOf(address(this));
+    }
+
+
 
     /**
      *    @notice calculate rewards of each NFT based on our formula
@@ -249,9 +331,41 @@ contract Harvest is Ownable, ChainlinkClient {
         return finalReward;
     }
 
-    function sendFee(address payable _to, uint256 _value) public payable {
-        (bool sent, bytes memory data) = _to.call{ value: _value }("");
-        require(sent, "Harvest.sendFee: Failed to send fee");
+    
+
+    
+
+
+
+    // --- ADMIN FUNCTIONS ---
+
+    function setData(
+        uint256[] memory _tokens,
+        uint256 _stakingTimestamp,
+        uint256 _multiplier,
+        uint256 _amountOfStakers,
+        uint256 _harvestCooldown,
+        address _user,
+        address _collection,
+        bool _isStakable
+    ) public onlyOwner {
+
+        bytes32 hash = keccak256(abi.encodePacked(_user, _collection));
+
+        userDataMap[hash] = UserData(
+            _tokens,
+            _stakingTimestamp,
+            _user,
+            _collection
+        );
+
+        collectionDataMap[_collection] = CollectionData(
+            _multiplier,
+            _amountOfStakers,
+            _harvestCooldown,
+            _collection,
+            _isStakable
+        );
     }
 
     function setFee(uint256 _value) public onlyOwner {
@@ -265,15 +379,24 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     function setOracleParams(
-        string memory _apiURL,
+        string memory _apiUrlBase,
         address _oracleAddress,
         bytes32 _jobId,
         uint256 _oracleFee
     ) public onlyOwner {
-        apiURL = _apiURL;
+        apiUrlBase = _apiUrlBase;
         oracle = _oracleAddress;
         jobId = _jobId;
         oracleFee = _oracleFee;
+    }
+
+    /**
+     * @dev Reset the state of a harvest in the event that not all callbacks are successful
+     */
+    function resetHarvest(address _user, address _collection) public onlyOwner {
+        bytes32 hash = bytes32(abi.encodePacked(_user, _collection));
+        pendingBalance[hash] = 0;
+        tokensLeftToHarvest[hash] = 0;
     }
 
     /**
@@ -284,13 +407,24 @@ contract Harvest is Ownable, ChainlinkClient {
         LINK.transfer(_to, LINK.balanceOf(address(this)));
     }
 
-    /**
-     * @dev View LINK token balance of smart contract
-     */
-    function viewLinkBalance() public returns (uint256) {
-        LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
-        return LINK.balanceOf(address(this));
-    }
 
-    receive() external payable {}
+
+
+
+
+
+    // TESTING ONLY
+
+    function setTestData(uint[] memory tokenIds) public onlyOwner {
+        setData(
+            tokenIds,
+            block.timestamp - (24*60*60),
+            1,
+            1,
+            0,
+            msg.sender,
+            0xAE16529eD90FAfc927D774Ea7bE1b95D826664E3,
+            true
+        );
+    }
 }
