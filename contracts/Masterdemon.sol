@@ -269,8 +269,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         return (
             user.stakedTokens[_collection],
             user.timeStaked[_collection],
-            user.amountStaked,
-
+            user.amountStaked
         );
     }
 
