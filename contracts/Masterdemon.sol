@@ -19,41 +19,15 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     /**
      *    @notice keep track of each user and their info
-     *
-     *    'stakedTokens' => mapping of collection address and array of staked ids
-     *    in given collection.
-     *    'amountStaked' => keep track of total amount of nfts staked in any pool
-     *    'userBalance' => somewhat unnecessary addition, to keep track of user rewards.
-     *    this becomes always 0 after _harvest, so removing it might be a good thing.
-     *     'timeStaked' => staking period in given collection
      */
     struct UserInfo {
         mapping(address => uint256[]) stakedTokens;
         mapping(address => uint256) timeStaked;
         uint256 amountStaked;
-        uint256 userBalance;
     }
 
     /**
      *    @notice keep track of each collection and their info
-     *
-     *    'isStakable' => instead of deleting the collection from mapping/array,
-     *    we use simple bool to disable it. By this we avoid possible complications
-     *    of holes in arrays (due to lack of deleting items at index in solidity),
-     *    sacrificing overall performance.
-     *    'collectionAddress' => ethereum address of given contract
-     *    'stakingFee' => simple msg.value
-     *    'harvestingFee' => simple msg.value
-     *    'multiplier' => boost collections by increasing rewards
-     *    'maturityPeriod' => represented in days, this will assure that user has to
-     *    stake for "some time" to start accumulating rewards
-     *    'amountOfStakers' => amount of people in given collection, used to decrease
-     *    rewards as collection popularity rises
-     *    'stakingLimit' => another limitation, represented in amount of staked nfts per user in
-     *    particular collection. Users can stake freely before they reach this limit and
-     *    again, either they cheat through staking from other account or they move to another
-     *    pool.
-     *    'requiredTimeToGetRewards' => represented in days, user must take this many days to get rewards
      */
     struct CollectionInfo {
         bool isStakable;
@@ -81,31 +55,52 @@ contract Masterdemon is Ownable, ReentrancyGuard {
      */
     CollectionInfo[] public collectionInfo;
 
-    /**
-     *   @notice dev address for fees
-     */
-    address payable devAddress;
-
     constructor() {}
 
     /*-------------------------------Main external functions-------------------------------*/
 
+    /**
+     *   @notice external stake function, for single stake request
+     *   @param _cid => collection address
+     *   @param _id => nft id
+     */
     function stake(uint256 _cid, uint256 _id) external payable {
-        require(msg.value >= collectionInfo[_cid].stakingFee, "Masterdemon.stake: Fee");
+        require(
+            msg.value >= collectionInfo[_cid].stakingFee,
+            "Masterdemon.stake: Fee"
+        );
         _stake(msg.sender, _cid, _id);
     }
 
+    /**
+     *   @notice loops normal stake, in case of multiple stake requests
+     *   @param _cid => collection address
+     *   @param _ids => array of nft ids
+     */
     function batchStake(uint256 _cid, uint256[] memory _ids) external payable {
         for (uint256 i = 0; i < _ids.length; ++i) {
-            require(msg.value >= collectionInfo[_cid].stakingFee, "Masterdemon.stake: Fee");
+            require(
+                msg.value >= collectionInfo[_cid].stakingFee,
+                "Masterdemon.stake: Fee"
+            );
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
 
+    /**
+     *   @notice external unstake function, for single unstake request
+     *   @param _cid => collection address
+     *   @param _id => nft id
+     */
     function unstake(uint256 _cid, uint256 _id) external {
         _unstake(msg.sender, _cid, _id);
     }
 
+    /**
+     *   @notice loops normal unstake, in case of multiple unstake requests
+     *   @param _cid => collection address
+     *   @param _ids => array of nft ids
+     */
     function batchUnstake(uint256 _cid, uint256[] memory _ids) external {
         for (uint256 i = 0; i < _ids.length; ++i) {
             _unstake(msg.sender, _cid, _ids[i]);
@@ -117,16 +112,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /**
      *    @notice internal stake function, called in external stake and batchStake
      *    @param _user => msg.sender
-     *    @param _cid => collection id, to get correct one from array
+     *    @param _cid => collection id
      *    @param _id => nft id
-     *
-     *    - First we have to check if user reached the staking limitation.
-     *    - We transfer their NFT to contract
-     *    - If user never staked here before, we increment amountOfStakers
-     *    - increment amountStaked by 1
-     *    - Start tracking of daysStaked with stakedTimestamp
-     *    - populate stakedTokens mapping
-     *    - populate tokenOwners double mapping with user's address
      */
     function _stake(
         address _user,
@@ -161,18 +148,8 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     /**
      *    @notice internal unstake function, called in external unstake and batchUnstake
      *    @param _user => msg.sender
-     *    @param _cid => collection id, to get correct one from array
+     *    @param _cid => collection id
      *    @param _id => nft id
-     *
-     *    - Important require statement checks if user really staked in given collection
-     *    with help of double mapping
-     *    - If it's okay, we return the tokens, without minting any rewards
-     *    - Next several lines are for delicate array manipulation
-     *    - delete id from stakedTokens mapping => array
-     *    - delete user from tokenOwners double mapping
-     *    - reset user's daysStaked to zero %%%%%%%%%%%%%%% might cause issues
-     *    - if user has nothing left in given collection, deincrement amountOfstakers
-     *    - if user has nothing staked at all (in any collection), delete their struct
      */
     function _unstake(
         address _user,
@@ -207,14 +184,19 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (user.amountStaked == 0) {
             delete userInfo[_user];
         }
-
     }
 
     /*-------------------------------Admin functions-------------------------------*/
 
     /**
      *    @notice initialize new collection
-     *    {see struct for param definition}
+     *    @param _isStakable => is pool active?
+     *    @param _collectionAddress => address of nft collection
+     *    @param _stakingFee => represented in WEI
+     *    @param _harvestingFee => represented in WEI
+     *    @param _multiplier => special variable to adjust returns
+     *    @param _stakingLimit => total amount of nfts user is allowed to stake
+     *    @param _harvestCooldown => represented in days
      */
     function setCollection(
         bool _isStakable,
@@ -241,7 +223,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
     /**
      *    @notice update collection
-     *    {see struct for param definition}
+     *    {see above function for param definition}
      */
     function updateCollection(
         uint256 _cid,
@@ -264,17 +246,12 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     /**
-     *    @notice enable/disable collections
+     *    @notice enable/disable collections, without updating whole struct
      *    @param _cid => collection id
      *    @param _isStakable => enable/disable
      */
     function manageCollection(uint256 _cid, bool _isStakable) public onlyOwner {
         collectionInfo[_cid].isStakable = _isStakable;
-    }
-
-    function setDev(address payable _newDev) public onlyOwner {
-        require(devAddress != _newDev, "Masterdemon.setDev: Value already set");
-        devAddress = _newDev;
     }
 
     /*-------------------------------Get functions for frontend-------------------------------*/
@@ -285,7 +262,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         returns (
             uint256[] memory,
             uint256,
-            uint256,
             uint256
         )
     {
@@ -294,7 +270,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             user.stakedTokens[_collection],
             user.timeStaked[_collection],
             user.amountStaked,
-            user.userBalance
+
         );
     }
 
@@ -308,6 +284,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             uint256,
             uint256,
             uint256,
+            uint256,
             uint256
         )
     {
@@ -315,25 +292,13 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         return (
             collection.isStakable,
             collection.collectionAddress,
+            collection.stakingFee,
             collection.harvestingFee,
             collection.multiplier,
             collection.amountOfStakers,
             collection.stakingLimit,
             collection.harvestCooldown
         );
-    }
-
-    function didUserStaked(address _user, address _collection)
-        public
-        view
-        returns (bool)
-    {
-        UserInfo storage user = userInfo[_user];
-        if (user.stakedTokens[_collection].length != 0) {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     /*-------------------------------Misc-------------------------------*/

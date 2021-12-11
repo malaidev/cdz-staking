@@ -15,10 +15,6 @@ Remove testSetData() function from bottom
 
 */
 
-
-
-
-
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.7;
@@ -29,9 +25,7 @@ import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 
 import "../mocks/IxLLTH.sol";
 
-
 contract Harvest is Ownable, ChainlinkClient {
-    
     /**
         @notice xLLTH token
      */
@@ -70,7 +64,6 @@ contract Harvest is Ownable, ChainlinkClient {
     bytes32 private jobId;
     uint256 private oracleFee;
 
-
     /**
      * GET => uint oracle
      *
@@ -79,7 +72,6 @@ contract Harvest is Ownable, ChainlinkClient {
      * Network: Polygon Mumbai TESTNET
      */
     constructor(address xLLTHaddress) {
-
         xLLTH = IxLLTH(xLLTHaddress);
 
         // GET => uint oracle
@@ -90,7 +82,6 @@ contract Harvest is Ownable, ChainlinkClient {
         // LINK token address on Polygon Mumbai testnet ONLY
         setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB); // Polygon Mumbai testnet ONLY
     }
-
 
     // --- MAPPINGS ---
 
@@ -104,10 +95,8 @@ contract Harvest is Ownable, ChainlinkClient {
 
     mapping(bytes32 => uint256) pendingBalance;
 
-
     // only LINK tokens can be withdrawn
     receive() external payable {}
-
 
     // --- PUBLIC FUNCTIONS ---
 
@@ -123,10 +112,7 @@ contract Harvest is Ownable, ChainlinkClient {
             "Harvest.harvest: You are on cooldown"
         );
 
-        require(
-            msg.value >= fee,
-            "Harvest.harvest: Cover fee"
-        );
+        require(msg.value >= fee, "Harvest.harvest: Cover fee");
 
         require(
             userData.user == msg.sender,
@@ -141,10 +127,7 @@ contract Harvest is Ownable, ChainlinkClient {
             "Harvest.harvest: You can't harvest, if pool is empty"
         );
 
-        require( // stops users harvesting again whilst fulfill() callback calls are still ongoing
-            tokensLeftToHarvest[hash] == 0,
-            "Harvest already in progress"
-        ); 
+        require(tokensLeftToHarvest[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst fulfill() callback calls are still ongoing
 
         // stores uint of how many tokens to get rarity score of. Accessed in fulfill() callback function
         tokensLeftToHarvest[hash] = userData.tokens.length;
@@ -152,9 +135,7 @@ contract Harvest is Ownable, ChainlinkClient {
         sendFee(devAddress, msg.value);
 
         for (uint256 x; x < userData.tokens.length; ++x) {
-
             _getRarity(userData.user, userData.collection, userData.tokens[x]);
-
         }
     }
 
@@ -172,11 +153,10 @@ contract Harvest is Ownable, ChainlinkClient {
             this.fulfill.selector
         );
 
-
         string memory fullURL = returnFullURL(_collection, _tokenId);
 
         // Set the URL to perform the GET request on
-        request.add("get", fullURL); 
+        request.add("get", fullURL);
 
         // Sends the request
         bytes32 requestId = sendChainlinkRequestTo(oracle, request, oracleFee);
@@ -232,31 +212,32 @@ contract Harvest is Ownable, ChainlinkClient {
         (bool sent, bytes memory data) = _to.call{ value: _value }("");
         require(sent, "Harvest.sendFee: Failed to send fee");
     }
-    
 
-
-    // --- INTERNAL FUNCTIONS --- 
-
+    // --- INTERNAL FUNCTIONS ---
 
     /**
      *    @notice converts a uint to a string
      *    @param _i => the uint to convet
      */
-    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
+    function uint2str(uint256 _i)
+        internal
+        pure
+        returns (string memory _uintAsString)
+    {
         if (_i == 0) {
             return "0";
         }
-        uint j = _i;
-        uint len;
+        uint256 j = _i;
+        uint256 len;
         while (j != 0) {
             len++;
             j /= 10;
         }
         bytes memory bstr = new bytes(len);
-        uint k = len;
+        uint256 k = len;
         while (_i != 0) {
-            k = k-1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
+            k = k - 1;
+            uint8 temp = (48 + uint8(_i - (_i / 10) * 10));
             bytes1 b1 = bytes1(temp);
             bstr[k] = b1;
             _i /= 10;
@@ -268,27 +249,30 @@ contract Harvest is Ownable, ChainlinkClient {
      *    @notice converts an address to a string
      *    @param _address => the address to convet
      */
-    function addressToString(address _address) internal pure returns(string memory) {
+    function addressToString(address _address)
+        internal
+        pure
+        returns (string memory)
+    {
         return toString(abi.encodePacked(_address));
     }
-    
+
     /**
      *    @notice converts bytes to a string
      *    @param data => the bytes to convet
      */
-    function toString(bytes memory data) internal pure returns(string memory) {
+    function toString(bytes memory data) internal pure returns (string memory) {
         bytes memory alphabet = "0123456789abcdef";
 
         bytes memory str = new bytes(2 + data.length * 2);
         str[0] = "0";
         str[1] = "x";
-        for (uint i = 0; i < data.length; i++) {
-            str[2+i*2] = alphabet[uint(uint8(data[i] >> 4))];
-            str[3+i*2] = alphabet[uint(uint8(data[i] & 0x0f))];
+        for (uint256 i = 0; i < data.length; i++) {
+            str[2 + i * 2] = alphabet[uint256(uint8(data[i] >> 4))];
+            str[3 + i * 2] = alphabet[uint256(uint8(data[i] & 0x0f))];
         }
         return string(str);
     }
-
 
     // --- VIEW FUNCTIONS ---
 
@@ -297,10 +281,22 @@ contract Harvest is Ownable, ChainlinkClient {
      *    @param _collection => address of NFT collection
      *    @param _tokenId => tokenId of token
      */
-    function returnFullURL(address _collection, uint _tokenId) public view returns(string memory) {
-        string memory collectionAddress =  addressToString(_collection);
+    function returnFullURL(address _collection, uint256 _tokenId)
+        public
+        view
+        returns (string memory)
+    {
+        string memory collectionAddress = addressToString(_collection);
         string memory tokenId = uint2str(_tokenId);
-        string memory fullURL = string(abi.encodePacked(apiUrlBase, "?address=", collectionAddress, "&id=", tokenId));
+        string memory fullURL = string(
+            abi.encodePacked(
+                apiUrlBase,
+                "?address=",
+                collectionAddress,
+                "&id=",
+                tokenId
+            )
+        );
         return fullURL;
     }
 
@@ -311,8 +307,6 @@ contract Harvest is Ownable, ChainlinkClient {
         LinkTokenInterface LINK = LinkTokenInterface(chainlinkTokenAddress());
         return LINK.balanceOf(address(this));
     }
-
-
 
     /**
      *    @notice calculate rewards of each NFT based on our formula
@@ -326,16 +320,10 @@ contract Harvest is Ownable, ChainlinkClient {
     ) internal pure returns (uint256) {
         uint256 baseMultiplier = _multiplier * _daysStaked;
         uint256 basemultiplierxRarity = baseMultiplier * _rarity;
-        uint256 finalReward = basemultiplierxRarity / _amountOfStakers; 
+        uint256 finalReward = basemultiplierxRarity / _amountOfStakers;
 
         return finalReward;
     }
-
-    
-
-    
-
-
 
     // --- ADMIN FUNCTIONS ---
 
@@ -349,7 +337,6 @@ contract Harvest is Ownable, ChainlinkClient {
         address _collection,
         bool _isStakable
     ) public onlyOwner {
-
         bytes32 hash = keccak256(abi.encodePacked(_user, _collection));
 
         userDataMap[hash] = UserData(
@@ -407,18 +394,12 @@ contract Harvest is Ownable, ChainlinkClient {
         LINK.transfer(_to, LINK.balanceOf(address(this)));
     }
 
-
-
-
-
-
-
     // TESTING ONLY
 
-    function setTestData(uint[] memory tokenIds) public onlyOwner {
+    function setTestData(uint256[] memory tokenIds) public onlyOwner {
         setData(
             tokenIds,
-            block.timestamp - (24*60*60),
+            block.timestamp - (24 * 60 * 60),
             1,
             1,
             0,
