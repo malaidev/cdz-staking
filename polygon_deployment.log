@@ -1,0 +1,62 @@
+Compiling your contracts...
+===========================
+> Everything is up to date, there is nothing to compile.
+
+
+
+Starting migrations...
+======================
+> Network name:    'mumbai'
+> Network id:      80001
+> Block gas limit: 20000000 (0x1312d00)
+
+
+3_deploy_polygon.js
+===================
+
+   Replacing 'MockLLTH'
+   --------------------
+   > transaction hash:    0xa4297f75f1b7aa0a182fc545e4b400dd365df1fa0a0d1fd170ad8032adb4fc0f
+   > Blocks: 2            Seconds: 5
+   > contract address:    0x8Ef70F33cE7eeAa8Bf6FF99e43AC234F0B34f30c
+   > block number:        22544611
+   > block timestamp:     1639264951
+   > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
+   > balance:             0.468890048
+   > gas used:            1296248 (0x13c778)
+   > gas price:           8 gwei
+   > value sent:          0 ETH
+   > total cost:          0.010369984 ETH
+
+   Pausing for 2 confirmations...
+   ------------------------------
+   > confirmation number: 3 (block: 22544616)
+
+   Deploying 'Harvest'
+   -------------------
+   > transaction hash:    0x5a4e3dc5858ea7d9964288d11592a818865b07860657eb6361630e0af9572518
+   > Blocks: 5            Seconds: 11
+   > contract address:    0x466a118583f11c439063b83b154efF9266DdE752
+   > block number:        22544621
+   > block timestamp:     1639264971
+   > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
+   > balance:             0.437053328
+   > gas used:            3979590 (0x3cb946)
+   > gas price:           8 gwei
+   > value sent:          0 ETH
+   > total cost:          0.03183672 ETH
+
+   Pausing for 2 confirmations...
+   ------------------------------
+   > confirmation number: 5 (block: 22544637)
+   > Saving artifacts
+   -------------------------------------
+   > Total cost:         0.042206704 ETH
+
+
+Summary
+=======
+> Total deployments:   2
+> Final cost:          0.042206704 ETH
+
+
