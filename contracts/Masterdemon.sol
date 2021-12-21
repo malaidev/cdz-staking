@@ -178,7 +178,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
 
         delete tokenOwners[collection.collectionAddress][_id];
 
-        user.timeStaked[collection.collectionAddress] = 0;
+        user.timeStaked[collection.collectionAddress] = block.timestamp;
         user.amountStaked -= 1;
 
         if (user.amountStaked == 0) {

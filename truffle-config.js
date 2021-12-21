@@ -10,18 +10,18 @@ module.exports = {
       port: 9545, 
       network_id: '*', 
     },
-    // mumbai: {
-    //   provider: () =>
-    //     new HDWalletProvider(
-    //       mnemonic,
-    //       'https://polygon-mumbai.infura.io/v3/',
-    //     ),
-    //   network_id: 80001,
-    //   gas: 5500000,
-    //   confirmations: 2,
-    //   timeoutBlocks: 200,
-    //   skipDryRun: true,
-    // },
+     mumbai: {
+       provider: () =>
+         new HDWalletProvider(
+           mnemonic,
+           'https://polygon-mumbai.infura.io/v3/b6e481301d404b36a710e9923d31bbb8',
+         ),
+       network_id: 80001,
+       gas: 5500000,
+       confirmations: 2,
+       timeoutBlocks: 200,
+       skipDryRun: true,
+     },
     // bsctestnet: {
     //   provider: () =>
     //     new HDWalletProvider(
@@ -51,6 +51,6 @@ module.exports = {
   plugins: ['truffle-plugin-verify'],
 
   api_keys: {
-    etherscan: ''
+    etherscan: '9JH2JKIF25KRW2QXE226PGFX1HWGFNGNFY'
   }
 };

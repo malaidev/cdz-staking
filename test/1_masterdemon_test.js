@@ -16,7 +16,7 @@ contract('Masterdemon - Main tests', async (accounts) => {
 
     collection.mint(10, accounts[0]);
     collection.mint(10, accounts[2]);
-    masterdemon.setDev(accounts[1]);
+
 
     masterdemon.setCollection(
       true,
