@@ -4,16 +4,17 @@ pragma solidity 0.8.7;
 /**
  * @title Cryptodemonz NFT staking contract
  * @author lawrence_of_arabia & kisile
+ * Special thanks to PonkyPink for catching bugs! 
  */
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import "./libs/Array.sol";
 
-contract Masterdemon is Ownable, ReentrancyGuard {
+contract Masterdemon is Ownable {
     using Address for address;
     using Array for uint256[];
 
@@ -78,11 +79,11 @@ contract Masterdemon is Ownable, ReentrancyGuard {
      *   @param _ids => array of nft ids
      */
     function batchStake(uint256 _cid, uint256[] memory _ids) external payable {
-        for (uint256 i = 0; i < _ids.length; ++i) {
-            require(
-                msg.value >= collectionInfo[_cid].stakingFee,
+        require(
+                msg.value >= collectionInfo[_cid].stakingFee * _ids.length,
                 "Masterdemon.stake: Fee"
             );
+        for (uint256 i = 0; i < _ids.length; ++i) {
             _stake(msg.sender, _cid, _ids[i]);
         }
     }
@@ -129,7 +130,7 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             "Masterdemon._stake: You can't stake more"
         );
 
-        IERC721(collection.collectionAddress).safeTransferFrom(
+        IERC721(collection.collectionAddress).transferFrom(
             _user,
             address(this),
             _id
@@ -164,12 +165,6 @@ contract Masterdemon is Ownable, ReentrancyGuard {
             "Masterdemon._unstake: Sender doesn't owns this token"
         );
 
-        IERC721(collection.collectionAddress).safeTransferFrom(
-            address(this),
-            _user,
-            _id
-        );
-
         user.stakedTokens[collection.collectionAddress].removeElement(_id);
 
         if (user.stakedTokens[collection.collectionAddress].length == 0) {
@@ -184,6 +179,12 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         if (user.amountStaked == 0) {
             delete userInfo[_user];
         }
+
+        IERC721(collection.collectionAddress).transferFrom(
+            address(this),
+            _user,
+            _id
+        );
     }
 
     /*-------------------------------Admin functions-------------------------------*/
@@ -254,6 +255,14 @@ contract Masterdemon is Ownable, ReentrancyGuard {
         collectionInfo[_cid].isStakable = _isStakable;
     }
 
+
+    /**
+    *   @notice withdraw ETH from contract
+     */
+    function withdraw() external onlyOwner {
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
     /*-------------------------------Get functions for frontend-------------------------------*/
 
     function getUserInfo(address _user, address _collection)
@@ -301,18 +310,5 @@ contract Masterdemon is Ownable, ReentrancyGuard {
     }
 
     /*-------------------------------Misc-------------------------------*/
-
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external returns (bytes4) {
-        return
-            bytes4(
-                keccak256("onERC721Received(address,address,uint256,bytes)")
-            );
-    }
-
     receive() external payable {}
 }
