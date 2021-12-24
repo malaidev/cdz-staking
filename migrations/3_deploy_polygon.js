@@ -1,9 +1,9 @@
 const Harvest = artifacts.require('Harvest');
-const MockLLTH = artifacts.require('MockLLTH');
+const MockXLLTH = artifacts.require('FxERC20');
 
 module.exports = async (deployer) => {
   let llth;
-  await deployer.deploy(MockLLTH).then((res) => {
+  await deployer.deploy(MockXLLTH).then((res) => {
     llth = res.address;
   });
   await deployer.deploy(Harvest, llth);

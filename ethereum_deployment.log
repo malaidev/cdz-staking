@@ -17,13 +17,13 @@ Starting migrations...
 
    Replacing 'Migrations'
    ----------------------
-   > transaction hash:    0x8b5191cb4be7d899e53b4affc1e007c1a0d6269141202481f0932d79869a3946
-   > Blocks: 1            Seconds: 4
-   > contract address:    0x3Df944006a06285b2e734c80865e6b594feD1cB6
-   > block number:        14893688
-   > block timestamp:     1639263799
+   > transaction hash:    0xe6e039826d32939fd9ffea7b0fa835cf8a07796775c1c6d3efb6d807a60882be
+   > Blocks: 3            Seconds: 8
+   > contract address:    0xFf5c3f5FE65DE1C7146857C51A81f8a5d9533c78
+   > block number:        15253990
+   > block timestamp:     1640355050
    > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
-   > balance:             0.69220129
+   > balance:             0.151815489999730298
    > gas used:            248854 (0x3cc16)
    > gas price:           10 gwei
    > value sent:          0 ETH
@@ -31,13 +31,14 @@ Starting migrations...
 
    Pausing for 10 confirmations...
    -------------------------------
-   > confirmation number: 1 (block: 14893690)
-   > confirmation number: 4 (block: 14893693)
-   > confirmation number: 5 (block: 14893694)
-   > confirmation number: 6 (block: 14893695)
-   > confirmation number: 8 (block: 14893697)
-   > confirmation number: 9 (block: 14893698)
-   > confirmation number: 10 (block: 14893699)
+   > confirmation number: 1 (block: 15253992)
+   > confirmation number: 2 (block: 15253993)
+   > confirmation number: 4 (block: 15253995)
+   > confirmation number: 5 (block: 15253996)
+   > confirmation number: 6 (block: 15253997)
+   > confirmation number: 8 (block: 15253999)
+   > confirmation number: 9 (block: 15254000)
+   > confirmation number: 10 (block: 15254001)
 
    > Saving migration to chain.
    > Saving artifacts
@@ -50,65 +51,118 @@ Starting migrations...
 
    Replacing 'Array'
    -----------------
-   > transaction hash:    0x5f153af766239c0e0aa50592f531db64a6d80986319bf26a358fb67eb1261374
-   > Blocks: 1            Seconds: 4
-   > contract address:    0x2831962e72a38761219eAa89e9515745506E80CC
-   > block number:        14893705
-   > block timestamp:     1639263850
+   > transaction hash:    0x9f17d55ac0ddd89248e4f29cfc8d2f31b6f3f98103fb61fa807b0ff7828ec78e
+
+Compiling your contracts...
+===========================
+> Everything is up to date, there is nothing to compile.
+
+
+
+Starting migrations...
+======================
+> Network name:    'bsctestnet'
+> Network id:      97
+> Block gas limit: 30000000 (0x1c9c380)
+
+
+1_initial_migration.js
+======================
+
+   Replacing 'Migrations'
+   ----------------------
+   > transaction hash:    0xfde18d198922b45ce35fabdbcea9cbfb4aff0dcf326c44013348637585b71da5
+   > Blocks: 2            Seconds: 4
+   > contract address:    0xf9ED9Cf4E4b8ca6077c678a3AcAde2BE1d41CA49
+   > block number:        15254225
+   > block timestamp:     1640355755
    > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
-   > balance:             0.68954458
-   > gas used:            223158 (0x367b6)
+   > balance:             0.146661599999730298
+   > gas used:            248854 (0x3cc16)
    > gas price:           10 gwei
    > value sent:          0 ETH
-   > total cost:          0.00223158 ETH
+   > total cost:          0.00248854 ETH
 
    Pausing for 10 confirmations...
    -------------------------------
-   > confirmation number: 2 (block: 14893707)
-   > confirmation number: 3 (block: 14893708)
-   > confirmation number: 5 (block: 14893710)
-   > confirmation number: 6 (block: 14893711)
-   > confirmation number: 7 (block: 14893712)
-   > confirmation number: 9 (block: 14893714)a
-   > confirmation number: 10 (block: 14893715)
+   > confirmation number: 2 (block: 15254227)
+   > confirmation number: 3 (block: 15254228)
+   > confirmation number: 5 (block: 15254230)
+   > confirmation number: 6 (block: 15254231)
+   > confirmation number: 7 (block: 15254232)
+   > confirmation number: 8 (block: 15254233)
+   > confirmation number: 10 (block: 15254235)
+
+   > Saving migration to chain.
+   > Saving artifacts
+   -------------------------------------
+   > Total cost:          0.00248854 ETH
+
+
+2_deploy_ethereum.js
+====================
+
+   Replacing 'Array'
+   -----------------
+   > transaction hash:    0xa544e2827eba79589953a420c569ed2dfea71c5b95dfbf645b1174aefe833547
+   > Blocks: 1            Seconds: 4
+   > contract address:    0x06E7dD8BF97554DBd19943Ed345E578E0EFe1A80
+   > block number:        15254240
+   > block timestamp:     1640355800
+   > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
+   > balance:             0.143996249999730298
+   > gas used:            224022 (0x36b16)
+   > gas price:           10 gwei
+   > value sent:          0 ETH
+   > total cost:          0.00224022 ETH
+
+   Pausing for 10 confirmations...
+   -------------------------------
+   > confirmation number: 2 (block: 15254242)
+   > confirmation number: 4 (block: 15254244)
+   > confirmation number: 5 (block: 15254245)
+   > confirmation number: 6 (block: 15254246)
+   > confirmation number: 7 (block: 15254247)
+   > confirmation number: 9 (block: 15254249)
+   > confirmation number: 10 (block: 15254250)
 
    Linking
    -------
-   * Contract: Masterdemon <--> Library: Array (at address: 0x2831962e72a38761219eAa89e9515745506E80CC)
+   * Contract: Masterdemon <--> Library: Array (at address: 0x06E7dD8BF97554DBd19943Ed345E578E0EFe1A80)
 
    Replacing 'Masterdemon'
    -----------------------
-   > transaction hash:    0x40d6b56b135a80a10ceac9da047b8d338bf28447c07ef520d2c85e760aaa486e
+   > transaction hash:    0x0d6e3d3c5626642c441796e313f0a3456b9738c5ebfbe2105c14f8e7e87e3b91
    > Blocks: 2            Seconds: 4
-   > contract address:    0xF6388b6aa1816569F14E7111E41fCaBFd9BcE57C
-   > block number:        14893718
-   > block timestamp:     1639263889
+   > contract address:    0xa15f8B16C51129C914a62E21Ac43EC715F75C722
+   > block number:        15254253
+   > block timestamp:     1640355839
    > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
-   > balance:             0.66833113
-   > gas used:            2121345 (0x205e81)
+   > balance:             0.123197749999730298
+   > gas used:            2079850 (0x1fbc6a)
    > gas price:           10 gwei
    > value sent:          0 ETH
-   > total cost:          0.02121345 ETH
+   > total cost:          0.0207985 ETH
 
    Pausing for 10 confirmations...
    -------------------------------
-   > confirmation number: 2 (block: 14893720)
-   > confirmation number: 3 (block: 14893721)
-   > confirmation number: 5 (block: 14893723)
-   > confirmation number: 6 (block: 14893724)
-   > confirmation number: 7 (block: 14893725)
-   > confirmation number: 9 (block: 14893727)
-   > confirmation number: 10 (block: 14893728)
+   > confirmation number: 2 (block: 15254255)
+   > confirmation number: 3 (block: 15254256)
+   > confirmation number: 4 (block: 15254257)
+   > confirmation number: 6 (block: 15254259)
+   > confirmation number: 7 (block: 15254260)
+   > confirmation number: 8 (block: 15254261)
+   > confirmation number: 10 (block: 15254263)
 
    Replacing 'MockCollection'
    --------------------------
-   > transaction hash:    0xdc11a5d09fdd6dd7a364bc36a36c6b534acc665ca1c77fce50b401f11c4d72b9
-   > Blocks: 1            Seconds: 4
-   > contract address:    0xc7a8AcEF395e701546b4F53c93fe6ba01B155AF4
-   > block number:        14893731
-   > block timestamp:     1639263928
+   > transaction hash:    0x6a1ef0eb086a339081c8b45e8c20b4b62762ca728e57dc782886d3a4698740e0
+   > Blocks: 2            Seconds: 5
+   > contract address:    0xb98723bA6875E7e25F3658A6da78Ee56EeF9e7B8
+   > block number:        15254265
+   > block timestamp:     1640355875
    > account:             0xb0bbEA2d69a20a332Ff90486761B908482030636
-   > balance:             0.64110569
+   > balance:             0.095972309999730298
    > gas used:            2722544 (0x298af0)
    > gas price:           10 gwei
    > value sent:          0 ETH
@@ -116,23 +170,23 @@ Starting migrations...
 
    Pausing for 10 confirmations...
    -------------------------------
-   > confirmation number: 2 (block: 14893733)
-   > confirmation number: 3 (block: 14893734)
-   > confirmation number: 4 (block: 14893735)
-   > confirmation number: 6 (block: 14893737)
-   > confirmation number: 7 (block: 14893738)
-   > confirmation number: 8 (block: 14893739)
-   > confirmation number: 10 (block: 14893741)
+   > confirmation number: 2 (block: 15254267)
+   > confirmation number: 3 (block: 15254268)
+   > confirmation number: 4 (block: 15254269)
+   > confirmation number: 6 (block: 15254271)
+   > confirmation number: 7 (block: 15254272)
+   > confirmation number: 8 (block: 15254273)
+   > confirmation number: 10 (block: 15254275)
 
    > Saving migration to chain.
    > Saving artifacts
    -------------------------------------
-   > Total cost:          0.05067047 ETH
+   > Total cost:          0.05026416 ETH
 
 
 Summary
 =======
 > Total deployments:   4
-> Final cost:          0.05315901 ETH
+> Final cost:          0.0527527 ETH
 
 

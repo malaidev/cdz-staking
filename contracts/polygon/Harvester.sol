@@ -45,6 +45,7 @@ contract Harvest is Ownable, ChainlinkClient {
         uint256 multiplier;
         uint256 amountOfStakers;
         uint256 harvestCooldown;
+        uint256 harvestFee;
         address collection;
         bool isStakable;
     }
@@ -56,7 +57,7 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     uint256 private fee;
-    address payable devAddress;
+    address public devAddress;
 
     string public apiUrlBase = "http://cdz-express-api-testing.herokuapp.com/"; // Example: http://localhost:3000/
 
@@ -100,7 +101,16 @@ contract Harvest is Ownable, ChainlinkClient {
 
     // --- PUBLIC FUNCTIONS ---
 
-    function harvest(address _collection) public payable {
+    function feeForHarvest(address _collection) public payable {
+        require(
+            msg.value >= collectionDataMap[_collection].harvestFee,
+            "Harvest.feeForHarvest: Fee not covered"
+        );
+        (bool success, ) = payable(devAddress).call{ value: msg.value }("");
+        require(success, "Harvest.feeForHarvest: Tranfer failed");
+    }
+
+    function harvest(address _collection) public {
         bytes32 hash = keccak256(abi.encodePacked(msg.sender, _collection));
 
         UserData storage userData = userDataMap[hash];
@@ -111,8 +121,6 @@ contract Harvest is Ownable, ChainlinkClient {
                 collectionData.harvestCooldown,
             "Harvest.harvest: You are on cooldown"
         );
-
-        require(msg.value >= fee, "Harvest.harvest: Cover fee");
 
         require(
             userData.user == msg.sender,
@@ -131,8 +139,6 @@ contract Harvest is Ownable, ChainlinkClient {
 
         // stores uint of how many tokens to get rarity score of. Accessed in fulfill() callback function
         tokensLeftToHarvest[hash] = userData.tokens.length;
-
-        sendFee(devAddress, msg.value);
 
         for (uint256 x; x < userData.tokens.length; ++x) {
             _getRarity(userData.user, userData.collection, userData.tokens[x]);
@@ -206,11 +212,6 @@ contract Harvest is Ownable, ChainlinkClient {
             xLLTH.mintForGames(user, pendingBalance[hash] * (10**18));
             pendingBalance[hash] = 0;
         }
-    }
-
-    function sendFee(address payable _to, uint256 _value) public payable {
-        (bool sent, bytes memory data) = _to.call{ value: _value }("");
-        require(sent, "Harvest.sendFee: Failed to send fee");
     }
 
     // --- INTERNAL FUNCTIONS ---
@@ -333,6 +334,7 @@ contract Harvest is Ownable, ChainlinkClient {
         uint256 _multiplier,
         uint256 _amountOfStakers,
         uint256 _harvestCooldown,
+        uint256 _harvestFee,
         address _user,
         address _collection,
         bool _isStakable
@@ -350,14 +352,10 @@ contract Harvest is Ownable, ChainlinkClient {
             _multiplier,
             _amountOfStakers,
             _harvestCooldown,
+            _harvestFee,
             _collection,
             _isStakable
         );
-    }
-
-    function setFee(uint256 _value) public onlyOwner {
-        require(fee != _value, "Harvest.setFee: Value already set to that");
-        fee = _value;
     }
 
     function setDev(address payable _newDev) public onlyOwner {
@@ -402,6 +400,7 @@ contract Harvest is Ownable, ChainlinkClient {
             block.timestamp - (24 * 60 * 60),
             1,
             1,
+            0,
             0,
             msg.sender,
             0xAE16529eD90FAfc927D774Ea7bE1b95D826664E3,
