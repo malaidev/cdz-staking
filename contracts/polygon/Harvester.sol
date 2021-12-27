@@ -1,22 +1,14 @@
 /*
-
-### TO DO - BEFORE PRODUCTION DEPLOYMENT ###
-
-
-Change Chainlink oracle params to Polygon main net:
-- Link token address (0xb0897686c545045afc77cf20ec7a532e3120e0f1)
-- oracle addres (0x0a31078cD57d23bf9e8e8F1BA78356ca2090569E)
-- job ID (12b86114fa9e46bab3ca436f88e1a912)
-- fee (0.01 LINK)
-(https://market.link/jobs/56666c3e-534d-490f-8757-521928739291)
-
-
-Remove testSetData() function from bottom
-
-*/
+ *   _____________   _______ _____ ___________ ________  ________ _   _ ______
+ *  /  __ | ___ \ \ / | ___ |_   _|  _  |  _  |  ___|  \/  |  _  | \ | |___  /
+ *  | /  \| |_/ /\ V /| |_/ / | | | | | | | | | |__ |      | | | |  \| |  / /
+ *  | |   |    /  \ / |  __/  | | | | | | | | |  __|| |\/| | | | |     | / /
+ *  \ \__/| |\ \  | | | |     | | \ \_/ | |/ /| |___| |  | \ \_/ | |\  |/ /___
+ *   \____\_| \_| \_/ \_|     \_/  \___/|___/ \____/\_|  |_/\___/\_| \_\_____/
+ *
+ */
 
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -59,7 +51,7 @@ contract Harvest is Ownable, ChainlinkClient {
     uint256 private fee;
     address public devAddress;
 
-    string public apiUrlBase = "http://cdz-express-api-testing.herokuapp.com/"; // Example: http://localhost:3000/
+    string public apiUrlBase = "http://cdz-express-api-testing.herokuapp.com/"; 
 
     address private oracle;
     bytes32 private jobId;
@@ -68,20 +60,20 @@ contract Harvest is Ownable, ChainlinkClient {
     /**
      * GET => uint oracle
      *
-     * https://market.link/jobs/5bfcaea1-82f5-428a-8695-774a3b9afbde
+     * (https://market.link/jobs/56666c3e-534d-490f-8757-521928739291)
      *
-     * Network: Polygon Mumbai TESTNET
+     * Network: Polygon
      */
     constructor(address xLLTHaddress) {
         xLLTH = IxLLTH(xLLTHaddress);
 
         // GET => uint oracle
-        oracle = 0xc8D925525CA8759812d0c299B90247917d4d4b7C; // Polygon Mumbai testnet ONLY
-        jobId = "bbf0badad29d49dc887504bacfbb905b"; // // Polygon Mumbai testnet ONLY
-        oracleFee = 0.01 * 10**18; // (Varies by network and job)
+        oracle = 0x0a31078cD57d23bf9e8e8F1BA78356ca2090569E; 
+        jobId = "12b86114fa9e46bab3ca436f88e1a912"; 
+        oracleFee = 0.01 * 10**18; 
 
-        // LINK token address on Polygon Mumbai testnet ONLY
-        setChainlinkToken(0x326C977E6efc84E512bB9C30f76E30c160eD06FB); // Polygon Mumbai testnet ONLY
+        // LINK token address on Polygon
+        setChainlinkToken(0xb0897686c545045aFc77CF20eC7A532E3120E0F1); 
     }
 
     // --- MAPPINGS ---
@@ -111,6 +103,7 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     function harvest(address _collection) public {
+        
         bytes32 hash = keccak256(abi.encodePacked(msg.sender, _collection));
 
         UserData storage userData = userDataMap[hash];
@@ -135,7 +128,11 @@ contract Harvest is Ownable, ChainlinkClient {
             "Harvest.harvest: You can't harvest, if pool is empty"
         );
 
-        require(tokensLeftToHarvest[hash] == 0, "Harvest already in progress"); // stops users harvesting again whilst fulfill() callback calls are still ongoing
+        // stops users harvesting again whilst fulfill() callback calls are still ongoing
+        require(
+            tokensLeftToHarvest[hash] == 0,
+            "Harvest already in progress"
+        ); 
 
         // stores uint of how many tokens to get rarity score of. Accessed in fulfill() callback function
         tokensLeftToHarvest[hash] = userData.tokens.length;
@@ -175,7 +172,7 @@ contract Harvest is Ownable, ChainlinkClient {
     }
 
     /**
-     * Receive the response in the form of uint256
+     * Receive the oracle response in the form of uint256
      */
     function fulfill(bytes32 _requestId, uint256 _rarity)
         public
@@ -204,7 +201,6 @@ contract Harvest is Ownable, ChainlinkClient {
         );
 
         pendingBalance[hash] += reward;
-
         tokensLeftToHarvest[hash]--;
 
         if (tokensLeftToHarvest[hash] == 0) {
@@ -275,6 +271,23 @@ contract Harvest is Ownable, ChainlinkClient {
         return string(str);
     }
 
+    /**
+     *    @notice calculate rewards of each NFT based on our formula
+     *    {see whitepaper for clear explanation}
+     */
+    function _getReward(
+        uint256 _rarity,
+        uint256 _daysStaked,
+        uint256 _multiplier,
+        uint256 _amountOfStakers
+    ) internal pure returns (uint256) {
+        uint256 baseMultiplier = _multiplier * _daysStaked;
+        uint256 basemultiplierxRarity = baseMultiplier * _rarity;
+        uint256 finalReward = basemultiplierxRarity / _amountOfStakers;
+
+        return finalReward;
+    }
+
     // --- VIEW FUNCTIONS ---
 
     /**
@@ -309,22 +322,6 @@ contract Harvest is Ownable, ChainlinkClient {
         return LINK.balanceOf(address(this));
     }
 
-    /**
-     *    @notice calculate rewards of each NFT based on our formula
-     *    {see whitepaper for clear explanation}
-     */
-    function _getReward(
-        uint256 _rarity,
-        uint256 _daysStaked,
-        uint256 _multiplier,
-        uint256 _amountOfStakers
-    ) internal pure returns (uint256) {
-        uint256 baseMultiplier = _multiplier * _daysStaked;
-        uint256 basemultiplierxRarity = baseMultiplier * _rarity;
-        uint256 finalReward = basemultiplierxRarity / _amountOfStakers;
-
-        return finalReward;
-    }
 
     // --- ADMIN FUNCTIONS ---
 
@@ -392,19 +389,4 @@ contract Harvest is Ownable, ChainlinkClient {
         LINK.transfer(_to, LINK.balanceOf(address(this)));
     }
 
-    // TESTING ONLY
-
-    function setTestData(uint256[] memory tokenIds) public onlyOwner {
-        setData(
-            tokenIds,
-            block.timestamp - (24 * 60 * 60),
-            1,
-            1,
-            0,
-            0,
-            msg.sender,
-            0xAE16529eD90FAfc927D774Ea7bE1b95D826664E3,
-            true
-        );
-    }
 }
