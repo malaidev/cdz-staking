@@ -57,6 +57,8 @@ contract Harvest is Ownable, ChainlinkClient {
     bytes32 private jobId;
     uint256 private oracleFee;
 
+    event Error(bytes32 _requestId, address user, address collection);
+
     /**
      * GET => uint oracle
      *
@@ -184,6 +186,11 @@ contract Harvest is Ownable, ChainlinkClient {
 
         address user = idToHarvestInfo[_requestId].userAddress;
         address collection = idToHarvestInfo[_requestId].collection;
+
+        if (_rarity <= 0) {
+            emit Error(_requestId, user, collection);
+            require(false, "Invalid _rarity value");
+        }
 
         bytes32 hash = keccak256(abi.encodePacked(user, collection));
 
