@@ -75,7 +75,7 @@ contract Harvest is Ownable, ChainlinkClient {
         oracleFee = 0.01 * 10**18; 
 
         // LINK token address on Polygon
-        setChainlinkToken(0xb0897686c545045aFc77CF20eC7A532E3120E0F1); 
+        setChainlinkToken(0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39); 
     }
 
     // --- MAPPINGS ---
