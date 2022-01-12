@@ -51,7 +51,7 @@ contract Harvest is Ownable, ChainlinkClient {
     uint256 private fee;
     address public devAddress;
 
-    string public apiUrlBase = "http://cdz-express-api-testing.herokuapp.com/"; 
+    string public apiUrlBase = "https://staking.prod.backend.lilithswap.com/rarity/"; 
 
     address private oracle;
     bytes32 private jobId;
