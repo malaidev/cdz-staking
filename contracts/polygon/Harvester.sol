@@ -70,7 +70,7 @@ contract Harvest is Ownable, ChainlinkClient {
         xLLTH = IxLLTH(xLLTHaddress);
 
         // GET => uint oracle
-        oracle = 0x0a31078cD57d23bf9e8e8F1BA78356ca2090569E; 
+        oracle = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1; 
         jobId = "23c942bf9a8b46fba06bd1a15161205a"; 
         oracleFee = 0.01 * 10**18; 
 
