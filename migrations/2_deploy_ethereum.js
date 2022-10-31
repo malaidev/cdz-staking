@@ -7,4 +7,5 @@ module.exports = async (deployer) => {
   await deployer.link(ArrayLib, [Masterdemon]);
   await deployer.deploy(Masterdemon);
   await deployer.deploy(MockCollection);
+  
 };
